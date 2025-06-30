@@ -11,6 +11,7 @@ const vipLevels = [
 
 async function seedVipLevels() {
   try {
+    await prisma.vipLevel.deleteMany(); // Clear existing records
     await prisma.vipLevel.createMany({ data: vipLevels });
     console.log("✅ VIP Levels seeded successfully!");
   } catch (error) {
