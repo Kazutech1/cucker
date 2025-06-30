@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | SiemensX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            padding: 100px 20px 120px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .app-logo {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 20px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-logo-text {
+            color: #40e0d0;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .back-button {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .back-button:hover {
+            background: rgba(64, 224, 208, 0.1);
+            transform: scale(1.05);
+        }
+
+        .back-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .notification-list {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .notification-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(64, 224, 208, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .notification-card:hover {
+            background: rgba(0, 0, 0, 0.6);
+            border-color: rgba(64, 224, 208, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+
+        .notification-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #40e0d0;
+            margin: 0;
+            flex: 1;
+        }
+
+        .notification-type {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .type-info { 
+            background: rgba(33, 150, 243, 0.2); 
+            color: #2196f3;
+            border: 1px solid rgba(33, 150, 243, 0.3);
+        }
+        .type-success { 
+            background: rgba(76, 175, 80, 0.2); 
+            color: #4caf50;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        .type-warning { 
+            background: rgba(255, 193, 7, 0.2); 
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+        .type-error { 
+            background: rgba(244, 67, 54, 0.2); 
+            color: #f44336;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+        .type-announcement { 
+            background: rgba(156, 39, 176, 0.2); 
+            color: #9c27b0;
+            border: 1px solid rgba(156, 39, 176, 0.3);
+        }
+
+        .notification-message {
+            font-size: 1rem;
+            color: #e0f7fa;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .notification-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .notification-date {
+            color: #b0b0b0;
+        }
+
+        .notification-status {
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-read {
+            background: rgba(76, 175, 80, 0.1);
+            color: #4caf50;
+        }
+
+        .status-unread {
+            background: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+
+        .no-notifications {
+            text-align: center;
+            color: #b0b0b0;
+            font-size: 1rem;
+            padding: 3rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .no-notifications-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            opacity: 0.5;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #40e0d0;
+            animation: spin 1s ease-in-out infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-container {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            color: #f44336;
+        }
+
+        .refresh-button {
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 20px auto 0;
+        }
+
+        .refresh-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(64, 224, 208, 0.3);
+        }
+
+        .refresh-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 100px 15px 120px;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .notification-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .notification-footer {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="app-logo">
+            <div class="app-logo-icon">
+                <svg fill="white" viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+            </div>
+            <h2 class="app-logo-text">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+        </div>
+        <button class="back-button" onclick="window.location.href='./home.html'">
+            <svg class="back-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="container">
+        <h1 class="page-title">Notifications</h1>
+
+        <div id="notification-loading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 1rem; color: #b0b0b0;">Loading notifications...</p>
+        </div>
+
+        <div id="notification-list" class="notification-list" style="display: none;">
+            <!-- Notifications will be dynamically inserted here -->
+        </div>
+
+        <div id="no-notifications" class="no-notifications" style="display: none;">
+            <div class="no-notifications-icon">
+                <svg fill="currentColor" viewBox="0 0 24 24" width="64" height="64">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <h3 style="margin-bottom: 10px; color: #40e0d0;">All caught up!</h3>
+            <p>No new notifications at the moment.</p>
+            <button class="refresh-button" onclick="fetchNotifications()">Check for Updates</button>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;">
+            <p id="error-text"></p>
+            <button class="refresh-button" onclick="fetchNotifications()">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        function getAuthToken() {
+            return localStorage.getItem('token');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+                return 'Yesterday at ' + date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } else if (diffDays < 7) {
+                return date.toLocaleDateString('en-US', { weekday: 'long' }) + ' at ' + date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } else {
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const loadingDiv = document.getElementById('notification-loading');
+            const notificationList = document.getElementById('notification-list');
+            const noNotifications = document.getElementById('no-notifications');
+
+            if (errorText) errorText.textContent = message;
+            if (errorDiv) errorDiv.style.display = 'block';
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            if (notificationList) notificationList.style.display = 'none';
+            if (noNotifications) noNotifications.style.display = 'none';
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('error-message');
+            if (errorDiv) errorDiv.style.display = 'none';
+        }
+
+        function checkAuth() {
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = './login.html';
+                return false;
+            }
+            return true;
+        }
+
+        async function fetchNotifications() {
+            if (!checkAuth()) return;
+
+            try {
+                hideError();
+                const loadingDiv = document.getElementById('notification-loading');
+                const notificationList = document.getElementById('notification-list');
+                const noNotifications = document.getElementById('no-notifications');
+
+                if (loadingDiv) loadingDiv.style.display = 'block';
+                if (notificationList) notificationList.style.display = 'none';
+                if (noNotifications) noNotifications.style.display = 'none';
+
+                // Using the same route as your existing code
+                const response = await fetch(`${API_BASE_URL}/auth/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = './login.html';
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: Failed to fetch notifications`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.message || 'Invalid response from server');
+                }
+
+                // Handle both possible response formats
+                const notifications = data.messages || data.data || [];
+                updateNotifications(notifications);
+
+            } catch (error) {
+                console.error('Notifications fetch error:', error);
+                showError(error.message || 'Failed to load notifications. Please check your connection and try again.');
+            }
+        }
+
+        function updateNotifications(notifications) {
+            const loadingDiv = document.getElementById('notification-loading');
+            const notificationList = document.getElementById('notification-list');
+            const noNotifications = document.getElementById('no-notifications');
+
+            if (loadingDiv) loadingDiv.style.display = 'none';
+
+            if (!notifications || notifications.length === 0) {
+                if (notificationList) notificationList.style.display = 'none';
+                if (noNotifications) noNotifications.style.display = 'block';
+                return;
+            }
+
+            if (notificationList) {
+                notificationList.style.display = 'flex';
+                notificationList.innerHTML = notifications.map(notification => {
+                    // Handle different notification formats
+                    const title = notification.title || 'Notification';
+                    const message = notification.message || notification.content || 'No message content';
+                    const type = notification.type || 'info';
+                    const isRead = notification.isRead || notification.read || false;
+                    const date = notification.createdAt || notification.date || notification.timestamp || new Date().toISOString();
+
+                    return `
+                        <div class="notification-card">
+                            <div class="notification-header">
+                                <h3 class="notification-title">${escapeHtml(title)}</h3>
+                                <span class="notification-type type-${type}">${type}</span>
+                            </div>
+                            <div class="notification-message">${escapeHtml(message)}</div>
+                            <div class="notification-footer">
+                                <span class="notification-date">${formatDate(date)}</span>
+                                <span class="notification-status ${isRead ? 'status-read' : 'status-unread'}">
+                                    ${isRead ? 'Read' : 'New'}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            if (noNotifications) noNotifications.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize data fetching on page load
+        window.addEventListener('load', () => {
+            if (!checkAuth()) return;
+            fetchNotifications();
+        });
+
+        // Auto-refresh notifications every 30 seconds
+        setInterval(() => {
+            if (checkAuth()) {
+                fetchNotifications();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

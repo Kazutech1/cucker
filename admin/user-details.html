@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Details | Cuker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg fill="white" viewBox="0 0 24 24" width="20" height="20">
+          <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+        </svg>
+      </div>
+      <div class="logo-text">Cuker Admin</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="users.html" class="active">Users</a>
+      <a href="deposits.html">Deposits</a>
+      <a href="withdrawals.html">Withdrawals</a>
+      <a href="referrals.html">Referrals</a>
+      <a href="transactions.html">Transactions</a>
+      <a href="broadcast.html">Email Broadcast</a>
+    </nav>
+    <a href="login.html" class="logout-btn">Logout</a>
+  </div>
+  <div class="container">
+    <div class="page-header">
+      <h1 class="page-title">User Details</h1>
+    </div>
+    <div class="card">
+      <p class="mb-4"><strong>Username:</strong> user1</p>
+      <p class="mb-4"><strong>Email:</strong> user1@example.com</p>
+      <p class="mb-4"><strong>Balance:</strong> $1,000</p>
+      <p><strong>Profile Image:</strong></p>
+      <img src="https://via.placeholder.com/150" alt="Profile" class="w-32 h-32 rounded-full mt-2">
+    </div>
+  </div>
+</body>
+</html>

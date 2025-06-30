@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions | Cuker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg fill="white" viewBox="0 0 24 24" width="20" height="20">
+          <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+        </svg>
+      </div>
+      <div class="logo-text">Cuker Admin</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="transactions.html" class="active">Transactions</a>
+      <a href="referrals.html">Referrals</a>
+      <a href="broadcast.html">Email Broadcast</a>
+    </nav>
+    <a href="login.html" class="logout-btn">Logout</a>
+  </div>
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2 class="section-title">Deposits</h2>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User ID</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>1</td>
+              <td>$500</td>
+              <td>Bank Transfer</td>
+              <td>Pending</td>
+              <td>
+                <a href="#" class="action-btn approve">Approve</a>
+                <a href="#" class="action-btn reject">Reject</a>
+              </td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>2</td>
+              <td>$1,000</td>
+              <td>Crypto</td>
+              <td>Approved</td>
+              <td>-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h2 class="section-title">Withdrawals</h2>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User ID</th>
+              <th>Amount</th>
+              <th>Wallet Address</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>1</td>
+              <td>$200</td>
+              <td>0x123...</td>
+              <td>Pending</td>
+              <td>
+                <a href="#" class="action-btn approve">Approve</a>
+                <a href="#" class="action-btn reject">Reject</a>
+              </td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>2</td>
+              <td>$300</td>
+              <td>0x456...</td>
+              <td>Rejected</td>
+              <td>-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h2 class="section-title">Transaction History</h2>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User ID</th>
+              <th>Action</th>
+              <th>Credit</th>
+              <th>Debit</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>1</td>
+              <td>Deposit</td>
+              <td>$500</td>
+              <td>$0</td>
+              <td>$1,000</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>1</td>
+              <td>Withdrawal</td>
+              <td>$0</td>
+              <td>$200</td>
+              <td>$800</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

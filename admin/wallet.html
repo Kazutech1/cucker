@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Wallet Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Admin Panel</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="withdrawals.html">Withdrawals</a></li>
+        <li><a href="deposits.html">Deposits</a></li>
+        <li><a href="vip.html">VIP Levels</a></li>
+        <li><a href="broadcast.html">Notifications</a></li>
+        <li><a href="wallet.html" class="active">Wallets</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div class="header">
+        <h1>Wallet Management</h1>
+      </div>
+      <div class="error-message" id="error-message" style="display: none;"></div>
+      
+      <!-- Add Wallet Section -->
+      <div class="section" id="add-wallet-section">
+        <h2>Add New Wallet</h2>
+        <div class="form-container">
+          <div class="form-row">
+            <label for="newCurrency">Currency</label>
+            <select id="newCurrency">
+              <option value="">Select Currency</option>
+              <option value="BTC">Bitcoin (BTC)</option>
+              <option value="ETH">Ethereum (ETH)</option>
+              <option value="USDT">Tether (USDT)</option>
+              <option value="USDC">USD Coin (USDC)</option>
+              <option value="LTC">Litecoin (LTC)</option>
+              <option value="XRP">Ripple (XRP)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="newAddress">Wallet Address</label>
+            <input type="text" id="newAddress" placeholder="Enter wallet address">
+          </div>
+          <div class="form-row">
+            <label for="newNetwork">Network</label>
+            <select id="newNetwork">
+              <option value="">Select Network</option>
+              <option value="Mainnet">Mainnet</option>
+              <option value="TRC20">TRC20</option>
+              <option value="ERC20">ERC20</option>
+              <option value="BEP20">BEP20</option>
+              <option value="Polygon">Polygon</option>
+            </select>
+          </div>
+          <button class="action-btn approve-btn" onclick="addWallet()">Add Wallet</button>
+        </div>
+      </div>
+
+      <!-- Wallets List Section -->
+      <div class="section" id="wallets-section">
+        <h2>Admin Wallets</h2>
+        <div class="filters">
+          <select id="currencyFilter">
+            <option value="">All Currencies</option>
+            <option value="BTC">Bitcoin (BTC)</option>
+            <option value="ETH">Ethereum (ETH)</option>
+            <option value="USDT">Tether (USDT)</option>
+            <option value="USDC">USD Coin (USDC)</option>
+            <option value="LTC">Litecoin (LTC)</option>
+            <option value="XRP">Ripple (XRP)</option>
+          </select>
+          <select id="statusFilter">
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <div class="table-container">
+          <table id="wallets-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Currency</th>
+                <th>Address</th>
+                <th>Network</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Wallet Modal -->
+  <div id="wallet-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="wallet-modal-title">Edit Wallet</h3>
+      <input type="hidden" id="editWalletId">
+      <label for="editCurrency">Currency</label>
+      <select id="editCurrency">
+        <option value="BTC">Bitcoin (BTC)</option>
+        <option value="ETH">Ethereum (ETH)</option>
+        <option value="USDT">Tether (USDT)</option>
+        <option value="USDC">USD Coin (USDC)</option>
+        <option value="LTC">Litecoin (LTC)</option>
+        <option value="XRP">Ripple (XRP)</option>
+      </select>
+      <label for="editAddress">Wallet Address</label>
+      <input type="text" id="editAddress">
+      <label for="editNetwork">Network</label>
+      <select id="editNetwork">
+        <option value="Mainnet">Mainnet</option>
+        <option value="TRC20">TRC20</option>
+        <option value="ERC20">ERC20</option>
+        <option value="BEP20">BEP20</option>
+        <option value="Polygon">Polygon</option>
+      </select>
+      <label for="editStatus">Status</label>
+      <select id="editStatus">
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+      <div class="modal-buttons">
+        <button class="action-btn approve-btn" onclick="updateWallet()">Update Wallet</button>
+        <button class="action-btn reject-btn" onclick="closeWalletModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="delete-modal" class="modal">
+    <div class="modal-content">
+      <h3>Confirm Delete</h3>
+      <p>Are you sure you want to delete this wallet? This action cannot be undone.</p>
+      <input type="hidden" id="deleteWalletId">
+      <div class="modal-buttons">
+        <button class="action-btn reject-btn" onclick="confirmDeleteWallet()">Delete</button>
+        <button class="action-btn approve-btn" onclick="closeDeleteModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script>
+    // Fetch and populate wallets
+    const fetchWallets = async (currency = '', status = '') => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (currency) queryParams.append('currency', currency);
+        if (status) queryParams.append('isActive', status);
+        
+        const response = await fetch(`${API_BASE_URL}/wallets?${queryParams.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch wallets');
+        }
+        const wallets = await response.json();
+        renderWallets(wallets);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render wallets table
+    const renderWallets = (wallets) => {
+      const tbody = document.querySelector('#wallets-table tbody');
+      tbody.innerHTML = wallets.map(wallet => `
+        <tr>
+          <td>${wallet.id}</td>
+          <td>
+            <span class="currency-badge ${wallet.currency.toLowerCase()}">${wallet.currency}</span>
+          </td>
+          <td>
+            <span class="wallet-address" title="${wallet.address}">
+              ${wallet.address.substring(0, 10)}...${wallet.address.substring(wallet.address.length - 10)}
+            </span>
+          </td>
+          <td>${wallet.network}</td>
+          <td>
+            <span class="status-badge ${wallet.isActive ? 'active' : 'inactive'}">
+              ${wallet.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td>${formatDate(wallet.createdAt)}</td>
+          <td>
+            <button class="action-btn approve-btn" onclick="openEditWalletModal('${wallet.id}', '${wallet.currency}', '${wallet.address}', '${wallet.network}', ${wallet.isActive})">Edit</button>
+            <button class="action-btn reject-btn" onclick="openDeleteModal('${wallet.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // Add new wallet
+    const addWallet = async () => {
+      const currency = document.getElementById('newCurrency').value;
+      const address = document.getElementById('newAddress').value;
+      const network = document.getElementById('newNetwork').value;
+
+      if (!currency || !address || !network) {
+        showError('All fields are required');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/wallets`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            currency,
+            address,
+            network
+          })
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          if (response.status === 400) throw new Error('Invalid wallet data');
+          throw new Error('Failed to add wallet');
+        }
+        const data = await response.json();
+        alert(data.message);
+        
+        // Clear form
+        document.getElementById('newCurrency').value = '';
+        document.getElementById('newAddress').value = '';
+        document.getElementById('newNetwork').value = '';
+        
+        fetchWallets();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Open edit wallet modal
+    const openEditWalletModal = (id, currency, address, network, isActive) => {
+      document.getElementById('editWalletId').value = id;
+      document.getElementById('editCurrency').value = currency;
+      document.getElementById('editAddress').value = address;
+      document.getElementById('editNetwork').value = network;
+      document.getElementById('editStatus').value = isActive.toString();
+      document.getElementById('wallet-modal').style.display = 'flex';
+    };
+
+    // Close wallet modal
+    const closeWalletModal = () => {
+      document.getElementById('wallet-modal').style.display = 'none';
+    };
+
+    // Update wallet
+    const updateWallet = async () => {
+      const id = document.getElementById('editWalletId').value;
+      const currency = document.getElementById('editCurrency').value;
+      const address = document.getElementById('editAddress').value;
+      const network = document.getElementById('editNetwork').value;
+      const isActive = document.getElementById('editStatus').value === 'true';
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/wallets/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            currency,
+            address,
+            network,
+            isActive
+          })
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          if (response.status === 404) throw new Error('Wallet not found');
+          throw new Error('Failed to update wallet');
+        }
+        const data = await response.json();
+        alert(data.message);
+        closeWalletModal();
+        fetchWallets();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Open delete modal
+    const openDeleteModal = (walletId) => {
+      document.getElementById('deleteWalletId').value = walletId;
+      document.getElementById('delete-modal').style.display = 'flex';
+    };
+
+    // Close delete modal
+    const closeDeleteModal = () => {
+      document.getElementById('delete-modal').style.display = 'none';
+    };
+
+    // Confirm delete wallet
+    const confirmDeleteWallet = async () => {
+      const walletId = document.getElementById('deleteWalletId').value;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/wallets/${walletId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          if (response.status === 404) throw new Error('Wallet not found');
+          throw new Error('Failed to delete wallet');
+        }
+        const data = await response.json();
+        alert(data.message);
+        closeDeleteModal();
+        fetchWallets();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Filter wallets
+    const filterWallets = () => {
+      const currencyFilter = document.getElementById('currencyFilter').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+      fetchWallets(currencyFilter, statusFilter);
+    };
+
+    // Event listeners
+    document.getElementById('currencyFilter').addEventListener('change', filterWallets);
+    document.getElementById('statusFilter').addEventListener('change', filterWallets);
+
+    // Initial fetch
+    fetchWallets();
+  </script>
+
+  <style>
+    .form-container {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+
+    .form-row {
+      margin-bottom: 15px;
+    }
+
+    .form-row label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .form-row input, .form-row select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .currency-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .currency-badge.btc { background-color: #f7931a; }
+    .currency-badge.eth { background-color: #627eea; }
+    .currency-badge.usdt { background-color: #26a17b; }
+    .currency-badge.usdc { background-color: #2775ca; }
+    .currency-badge.ltc { background-color: #bfbbbb; }
+    .currency-badge.xrp { background-color: #23292f; }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .status-badge.active { background-color: #28a745; }
+    .status-badge.inactive { background-color: #dc3545; }
+
+    .wallet-address {
+      font-family: monospace;
+      font-size: 12px;
+      cursor: help;
+    }
+  </style>
+</body>
+</html>

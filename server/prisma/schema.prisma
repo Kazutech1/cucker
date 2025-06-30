@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid()) @map("userid")
+  email        String   @unique
+  fullName     String
+  username     String   @unique
+  phoneNumber  String?   @unique  // New phone number field
+  password     String
+  referralCode String   @unique
+  referredBy   String?
+  role         String   @default("user") // 'user' or 'admin'
+  balance      Float    @default(0)
+  profitBalance Float   @default(0)
+  withdrawalAddress String?   // New field for crypto address
+  lastProfitCalc DateTime?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  profile     Profile?
+  withdrawal Withdrawal[]
+  deposit    Deposit[]
+}
+
+model VipLevel {
+  level          Int       @id
+  name           String?
+  profitPerOrder Float     @default(0.0)
+  appsPerSet     Int
+  minBalance     Float
+  createdAt      DateTime  @default(now())
+  profiles       Profile[]
+}
+
+model Investment {
+  id             String    @id @default(uuid())
+  userId         String
+  amount         Float
+  startDate      DateTime  @default(now())
+  lastProfitDate DateTime?
+
+}
+
+model EarningsHistory {
+  id     String   @id @default(uuid())
+  userId String
+  amount Float
+  date   DateTime @default(now())
+ 
+}
+
+
+model Withdrawal {
+  id              String   @id @default(uuid())
+  userId          String
+  amount          Float
+  address         String
+  status          String   @default("pending") // pending/completed/failed
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+  
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model Profile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  vipLevel      Int      @default(0)
+  totalInvested Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vipLevelData VipLevel @relation(fields: [vipLevel], references: [level])
+}
+
+
+model Deposit {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Float
+  txHash      String?  // Transaction hash
+  proofImage   String?  // URL to uploaded image
+  status      String   @default("pending") // pending/verified/rejected
+  createdAt   DateTime @default(now())
+  verifiedAt  DateTime?
+  
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model AdminWallet {
+  id          String   @id @default(uuid())
+  currency    String   // BTC, ETH, USDT, etc
+  address     String
+  network     String?  // Mainnet, TRC20, ERC20, etc
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  type        String   @default("info") // info, warning, success, error
+  createdAt   DateTime @default(now())
+  
+  // Relations
+}

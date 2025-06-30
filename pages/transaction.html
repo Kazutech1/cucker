@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction History | SiemensX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            padding: 100px 20px 120px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .app-logo {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 20px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-logo-text {
+            color: #40e0d0;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .back-button {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(64, 224, 208, 0.1);
+            transform: scale(1.05);
+        }
+
+        .back-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .transaction-list {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .transaction-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(64, 224, 208, 0.1);
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .transaction-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .transaction-type {
+            font-size: 0.9rem;
+            color: #b0b0b0;
+            text-transform: capitalize;
+        }
+
+        .transaction-type .status-verified {
+            color: #4ade80; /* Green for verified */
+        }
+
+        .transaction-type .status-pending {
+            color: #FFC107; /* Yellow for pending */
+        }
+
+        .transaction-type .status-rejected {
+            color: #ff5e5e; /* Red for rejected */
+        }
+
+        .transaction-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .transaction-amount {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .transaction-amount.deposit,
+        .transaction-amount.earnings {
+            color: #4ade80;
+        }
+
+        .transaction-amount.withdrawal {
+            color: #ff5e5e;
+        }
+
+        .no-transactions {
+            text-align: center;
+            color: #b0b0b0;
+            font-size: 1rem;
+            padding: 2rem;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #40e0d0;
+            animation: spin 1s ease-in-out infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #40e0d0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination-btn:hover:not(.disabled) {
+            background: rgba(64, 224, 208, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .pagination-btn.disabled {
+            color: #b0b0b0;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 100px 15px 120px;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .transaction-amount {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="app-logo">
+            <div class="app-logo-icon">
+                <svg fill="white" viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+            </div>
+            <h2 class="app-logo-text">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+        </div>
+        <button class="back-button" onclick="window.location.href='./home.html'">
+            <svg class="back-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="container">
+        <h1 class="page-title">Transaction History</h1>
+
+        <div id="transaction-loading" style="text-align: center; padding: 2rem;">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 1rem; color: #b0b0b0;">Loading transaction history...</p>
+        </div>
+
+        <div id="transaction-list" class="transaction-list" style="display: none;">
+            <!-- Transactions will be dynamically inserted here -->
+        </div>
+
+        <div id="no-transactions" class="no-transactions" style="display: none;">
+            No transactions found.
+        </div>
+
+        <div id="pagination-controls" style="display: none;"></div>
+        <div id="error-message" class="error-message" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api';
+        
+        function getAuthToken() {
+            return localStorage.getItem('token');
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(Math.abs(amount) || 0);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function showMessage(message, type = 'error') {
+            const element = document.getElementById('error-message');
+            if (element) {
+                element.className = type === 'error' ? 'error-message' : 'success-message';
+                element.textContent = message;
+                element.style.display = 'block';
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function checkAuth() {
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = './login.html';
+                return false;
+            }
+            return true;
+        }
+
+        async function fetchTransactionHistory(page = 1) {
+            try {
+                const loadingDiv = document.getElementById('transaction-loading');
+                const transactionList = document.getElementById('transaction-list');
+                const noTransactions = document.getElementById('no-transactions');
+                const paginationContainer = document.getElementById('pagination-controls');
+
+                if (loadingDiv) loadingDiv.style.display = 'block';
+                if (transactionList) transactionList.style.display = 'none';
+                if (noTransactions) noTransactions.style.display = 'none';
+                if (paginationContainer) paginationContainer.style.display = 'none';
+
+                const response = await fetch(`${API_BASE_URL}/transactions?page=${page}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = './login.html';
+                        return;
+                    }
+                    throw new Error('Failed to fetch transaction history');
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Invalid response');
+                }
+
+                const transactions = data.transactions || [];
+                updateTransactionHistory(transactions, data.pagination);
+
+            } catch (error) {
+                console.error('Transaction history fetch error:', error);
+                showMessage('Failed to load transaction history. Please try again.');
+                updateTransactionHistory([], {});
+            }
+        }
+
+        function updateTransactionHistory(transactions, pagination = {}) {
+            const loadingDiv = document.getElementById('transaction-loading');
+            const transactionList = document.getElementById('transaction-list');
+            const noTransactions = document.getElementById('no-transactions');
+            const paginationContainer = document.getElementById('pagination-controls');
+
+            if (loadingDiv) loadingDiv.style.display = 'none';
+
+            if (transactions.length === 0) {
+                if (transactionList) transactionList.style.display = 'none';
+                if (noTransactions) noTransactions.style.display = 'block';
+                if (paginationContainer) paginationContainer.style.display = 'none';
+                return;
+            }
+
+            if (transactionList) {
+                transactionList.style.display = 'flex';
+                transactionList.innerHTML = transactions.map(transaction => {
+                    const amountSign = transaction.type === 'withdrawal' ? '-' : '+';
+                    const amountClass = transaction.type === 'withdrawal' ? 'withdrawal' : transaction.type;
+                    const statusClass = `status-${transaction.status.toLowerCase()}`;
+                    return `
+                        <div class="transaction-card">
+                            <div class="transaction-info">
+                                <div class="transaction-type">${transaction.type} (<span class="${statusClass}">${transaction.status}</span>)</div>
+                                <div class="transaction-time">${formatDate(transaction.date)}</div>
+                            </div>
+                            <div class="transaction-amount ${amountClass}">${amountSign}${formatCurrency(transaction.amount)}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            if (noTransactions) noTransactions.style.display = 'none';
+
+            if (paginationContainer) {
+                paginationContainer.innerHTML = generatePaginationControls(pagination);
+                paginationContainer.style.display = 'flex';
+            }
+        }
+
+        function generatePaginationControls(pagination) {
+            const { currentPage = 1, totalPages = 1, hasNext = false, hasPrev = false } = pagination;
+            let controls = '<div class="pagination-controls">';
+
+            controls += `
+                <button class="pagination-btn ${!hasPrev ? 'disabled' : ''}" 
+                        onclick="${hasPrev ? `fetchTransactionHistory(${currentPage - 1})` : ''}">
+                    Previous
+                </button>
+                <span style="align-self: center; color: #b0b0b0;">Page ${currentPage} of ${totalPages}</span>
+                <button class="pagination-btn ${!hasNext ? 'disabled' : ''}" 
+                        onclick="${hasNext ? `fetchTransactionHistory(${currentPage + 1})` : ''}">
+                    Next
+                </button>
+            `;
+
+            controls += '</div>';
+            return controls;
+        }
+
+        // Initialize data fetching on page load
+        window.addEventListener('load', () => {
+            if (!checkAuth()) return;
+            fetchTransactionHistory();
+        });
+    </script>
+</body>
+</html>

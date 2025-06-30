@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Withdrawals</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Admin Panel</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="withdrawals.html" class="active">Withdrawals</a></li>
+        <li><a href="deposits.html">Deposits</a></li>
+        <li><a href="vip.html">VIP Levels</a></li>
+     <li><a href="broadcast.html">Notifications</a></li>
+        <li><a href="wallet.html">Wallets</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div class="header">
+        <h1>Withdrawal Management</h1>
+      </div>
+      <div class="error-message" id="error-message" style="display: none;"></div>
+      
+      <div class="section" id="withdrawals-section">
+        <div class="filters">
+          <select id="withdrawalStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input type="text" id="withdrawalUserIdFilter" placeholder="Filter by User ID">
+        </div>
+        <div class="table-container">
+          <table id="withdrawals-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Amount</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title">Process Withdrawal</h3>
+      <label for="actionId">ID</label>
+      <input type="text" id="actionId" readonly>
+      <label for="actionStatus">Status</label>
+      <select id="actionStatus">
+        <option value="completed">Completed</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <label for="txHash" id="txHashLabel">Transaction Hash (required for completed)</label>
+      <input type="text" id="txHash">
+      <div class="modal-buttons">
+        <button class="action-btn approve-btn" onclick="submitAction()">Submit</button>
+        <button class="action-btn reject-btn" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script>
+    // Fetch and populate withdrawals
+    const fetchWithdrawals = async (status = '', userId = '') => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (status) queryParams.append('status', status);
+        if (userId) queryParams.append('userId', userId);
+        const response = await fetch(`${API_BASE_URL}/withdrawals?${queryParams.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch withdrawals');
+        }
+        const withdrawalsData = await response.json();
+        renderWithdrawals(withdrawalsData);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render withdrawals table
+    const renderWithdrawals = (withdrawals) => {
+      const tbody = document.querySelector('#withdrawals-table tbody');
+      tbody.innerHTML = withdrawals.map(withdrawal => `
+        <tr>
+          <td>${withdrawal.id}</td>
+          <td>${withdrawal.user.username} (${withdrawal.user.id})</td>
+          <td>${formatCurrency(withdrawal.amount)}</td>
+          <td>${withdrawal.address}</td>
+          <td>${withdrawal.status}</td>
+          <td>${formatDate(withdrawal.createdAt)}</td>
+          <td>
+            ${withdrawal.status === 'pending' ? `
+              <button class="action-btn approve-btn" onclick="openProcessModal('withdrawal', '${withdrawal.id}')">Process</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // Open process modal
+    const openProcessModal = (type, id) => {
+      document.getElementById('modal-title').textContent = 'Process Withdrawal';
+      document.getElementById('actionId').value = id;
+      document.getElementById('actionStatus').value = 'completed';
+      document.getElementById('txHash').value = '';
+      document.getElementById('modal').style.display = 'flex';
+    };
+
+    // Close modal
+    const closeModal = () => {
+      document.getElementById('modal').style.display = 'none';
+    };
+
+    // Submit action
+    const submitAction = async () => {
+      const actionId = document.getElementById('actionId').value;
+      const status = document.getElementById('actionStatus').value;
+      const txHash = document.getElementById('txHash').value;
+
+      if (status === 'completed' && !txHash) {
+        showError('Transaction hash is required for completed withdrawals');
+        return;
+      }
+
+      try {
+        const body = {
+          withdrawalId: actionId,
+          status,
+          txHash: status === 'completed' ? txHash : undefined
+        };
+
+        const response = await fetch(`${API_BASE_URL}/withdrawals/process`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to process withdrawal');
+        }
+        const data = await response.json();
+        alert(data.message);
+        closeModal();
+        fetchWithdrawals();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Filter withdrawals
+    const filterWithdrawals = () => {
+      const statusFilter = document.getElementById('withdrawalStatusFilter').value;
+      const userIdFilter = document.getElementById('withdrawalUserIdFilter').value;
+      fetchWithdrawals(statusFilter, userIdFilter);
+    };
+
+    // Event listeners
+    document.getElementById('withdrawalStatusFilter').addEventListener('change', filterWithdrawals);
+    document.getElementById('withdrawalUserIdFilter').addEventListener('input', filterWithdrawals);
+
+    // Initial fetch
+    fetchWithdrawals();
+  </script>
+</body>
+</html>

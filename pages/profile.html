@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | SiemensX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            padding: 80px 20px 120px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #40e0d0;
+        }
+
+        .profile-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            color: #40e0d0;
+        }
+
+        .profile-info p {
+            color: #b0b0b0;
+            font-size: 0.9rem;
+        }
+
+        .invite-code {
+            background: rgba(64, 224, 208, 0.1);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .stats-card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .stats-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .balance {
+            color: #40e0d0;
+        }
+
+        .invested {
+            color: #4ade80;
+        }
+
+        .stat-label {
+            color: #b0b0b0;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .vip-badge {
+            background: linear-gradient(135deg, #ffd700, #c0c0c0);
+            color: #1a1a2e;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .menu-card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            transform: translateX(5px);
+        }
+
+        .menu-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            color: #40e0d0;
+        }
+
+        .menu-text {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .menu-arrow {
+            color: #b0b0b0;
+            width: 16px;
+            height: 16px;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 15px;
+            background: rgba(255, 71, 71, 0.2);
+            border: 1px solid rgba(255, 71, 71, 0.3);
+            border-radius: 10px;
+            color: #ff5e5e;
+            font-weight: 600;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 71, 71, 0.3);
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-logo {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 20px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-logo-text {
+            color: #40e0d0;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .hamburger-menu {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-menu:hover {
+            background: rgba(64, 224, 208, 0.1);
+            transform: scale(1.05);
+        }
+
+        .hamburger-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        .back-button {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+        }
+
+        .back-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(64, 224, 208, 0.15);
+            padding: 20px 0;
+            z-index: 10;
+            border-radius: 30px 30px 0 0;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #888;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        .nav-item.active {
+            color: #40e0d0;
+            background: rgba(64, 224, 208, 0.1);
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+
+        .nav-text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(64, 224, 208, 0.15);
+            padding: 20px;
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+            transform: translateX(-100%);
+            transition: transform 0.35s ease-in-out;
+            z-index: 999;
+        }
+
+        .sidebar.visible {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #40e0d0;
+            margin-bottom: 30px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .sidebar-header button {
+            background: none;
+            border: none;
+            color: #40e0d0;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-nav a {
+            color: white;
+            text-decoration: none;
+            padding: 12px 0;
+            font-size: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-nav a:hover {
+            color: #40e0d0;
+            padding-left: 10px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 80px 15px 120px;
+            }
+            
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .invite-code {
+                margin-top: 10px;
+            }
+
+            .sidebar {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="app-logo">
+            <div class="app-logo-icon">
+                <svg fill="white" viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+            </div>
+            <h2 style="font-size: 2rem; font-weight: bold;">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+        </div>
+        
+        <div class="hamburger-menu" onclick="toggleSidebar()">
+            <svg class="hamburger-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="profile-header">
+            <img id="profile-pic" src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-pic">
+            <div class="profile-info">
+                <h2 id="username">John Doe</h2>
+                <p id="email">user@example.com</p>
+                <p id="phoneNumber">+1234567890</p>
+                <span id="referralCode" class="invite-code">Invite Code: ABC123XYZ</span>
+                <div id="vip-badge" class="vip-badge">
+                    <svg fill="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                        <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1.06 13.54L7.4 12l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
+                    </svg>
+                    <span id="vip-level">VIP Silver</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-row">
+                <div class="stat">
+                    <div id="balance" class="stat-value balance">$0.00</div>
+                    <div class="stat-label">Total Balance</div>
+                </div>
+                <!-- <div class="stat">
+                    <div id="totalInvested" class="stat-value invested">$0.00</div>
+                    <div class="stat-label">Total Invested</div>
+                </div> -->
+                 <div class="stat">
+                    <div id="profitPerOrder" class="stat-value profit">0%</div>
+                    <div class="stat-label">Profit Per Order</div>
+                </div>
+            </div>
+            <div class="stats-row">
+               
+            </div>
+        </div>
+
+        <div class="menu-card">
+            <div class="menu-item">
+                <svg class="menu-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                </svg کردم
+                <span class="menu-text">Withdraw Funds</span>
+                <svg class="menu-arrow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </div>
+            <div class="menu-item">
+                <svg class="menu-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 6H8v1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1h-1v1H8v-1H6v-2h4v-1H7c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h1V7h2v1h2v2zm4 6.25l-2-2h4l-2 2zM14 10l2-2 2 2h-4z"/>
+                </svg>
+                <span class="menu-text">Transaction History</span>
+                <svg class="menu-arrow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </div>
+            <div class="menu-item">
+                <svg class="menu-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span class="menu-text">Personal Information</span>
+                <svg class="menu-arrow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </div>
+            <div class="menu-item">
+                <svg class="menu-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                </svg>
+                <span class="menu-text">Customer Service</span>
+                <svg class="menu-arrow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </div>
+            <div class="menu-item">
+                <svg class="menu-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+                <span class="menu-text">Notifications</span>
+                <svg class="menu-arrow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </div>
+        </div>
+
+        <button class="logout-btn" onclick="handleLogout()">Log Out</button>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-container">
+            <a href="./home.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                <span class="nav-text">Home</span>
+            </a>
+            
+            <a href="./start.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                </svg>
+                <span class="nav-text">Start</span>
+            </a>
+            
+            <a href="./level.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span class="nav-text">Level</span>
+            </a>
+            
+            <a href="#" class="nav-item active">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span class="nav-text">Profile</span>
+            </a>
+        </div>
+    </nav>
+
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2 style="font-size: 2rem; font-weight: bold;">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+            <button onclick="toggleSidebar()">✕</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="./home.html">Home</a>
+            <a href="./about.html">About Us</a>
+            <a href="./deposit.html">Deposit</a>
+            <a href="./cert.html">Certificate</a>
+            <a href="./faq.html">FAQ</a>
+            <a href="./terms.html">T&C</a>
+        </nav>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('visible');
+        }
+
+        async function fetchProfile() {
+    try {
+        const response = await fetch('http://localhost:5000/api/auth/profile', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.message === 'Profile retrieved successfully') {
+                const user = data.user;
+                
+                // Add null checks for each element
+                const setTextContent = (id, text) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = text;
+                };
+
+                setTextContent('username', user.username);
+                setTextContent('email', user.email);
+                setTextContent('phoneNumber', user.phoneNumber);
+                setTextContent('referralCode', `Invite Code: ${user.referralCode}`);
+                setTextContent('vip-level', ` ${user.vipLevel.name}`);
+                setTextContent('balance', `$${parseFloat(user.balance).toFixed(2)}`);
+                setTextContent('profitPerOrder', `${(user.vipLevel.profitPerOrder * 100).toFixed(2)}%`);
+                
+                // Only set if element exists
+                const totalInvestedEl = document.getElementById('totalInvested');
+                if (totalInvestedEl) {
+                    totalInvestedEl.textContent = `$${parseFloat(user.totalInvested).toFixed(2)}`;
+                }
+            } else {
+                throw new Error(data.message || 'Failed to fetch profile');
+            }
+        } else {
+            throw new Error('Profile request failed');
+        }
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        alert('Failed to load profile data. Please try again.');
+    }
+}
+
+
+       async function handleLogout() {
+    localStorage.removeItem('token');
+    window.location.href = '../index.html';
+}
+        document.querySelectorAll('.menu-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                switch (index) {
+                    case 0:
+                        window.location.href = './withdraw.html';
+                        break;
+                    case 1:
+                        window.location.href = './transaction.html';
+                        break;
+                    case 2:
+                        window.location.href = './personal.html';
+                        break;
+                    case 3:
+                        window.location.href = './settings.html';
+                        break;
+                    case 4:
+                        window.location.href = './notification.html';
+                        break;
+                }
+            });
+        });
+
+        window.addEventListener('load', () => {
+            if (!token) {
+                alert('Please log in to view your profile.');
+                window.location.href = '../index.html';
+                return;
+            }
+            fetchProfile();
+        });
+    </script>
+</body>
+</html>

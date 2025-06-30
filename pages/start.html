@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | SiemensX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .app-logo {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 20px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-logo-text {
+            color: #40e0d0;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .hamburger-menu {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-menu:hover {
+            background: rgba(64, 224, 208, 0.1);
+            transform: scale(1.05);
+        }
+
+        .hamburger-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(64, 224, 208, 0.15);
+            padding: 20px;
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+            transform: translateX(-100%);
+            transition: transform 0.35s ease-in-out;
+            z-index: 999;
+        }
+
+        .sidebar.visible {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #40e0d0;
+            margin-bottom: 30px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .sidebar-header button {
+            background: none;
+            border: none;
+            color: #40e0d0;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-nav a {
+            color: white;
+            text-decoration: none;
+            padding: 12px 0;
+            font-size: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-nav a:hover {
+            color: #40e0d0;
+            padding-left: 10px;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 100px 20px 120px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .vip-badge {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(64, 224, 208, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            border: 1px solid rgba(64, 224, 208, 0.2);
+        }
+
+        .vip-circle {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Card Styles */
+        .card {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+
+        .balance-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .balance-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .balance-label {
+            color: #b0b0b0;
+            font-size: 0.875rem;
+        }
+
+        .balance-amount {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #40e0d0;
+        }
+
+        .status-badge {
+            background: rgba(64, 224, 208, 0.2);
+            color: #40e0d0;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .profit-section {
+            padding-top: 1rem;
+            margin-top: 1rem;
+            border-top: 1px solid rgba(64, 224, 208, 0.2);
+        }
+
+        .profit-amount {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #4ade80;
+        }
+
+        /* ROI Card */
+        .roi-card h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .roi-content {
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+
+        .roi-percentage {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #40e0d0;
+        }
+
+        .roi-label {
+            color: #b0b0b0;
+            margin-top: 0.5rem;
+        }
+
+        /* Claim Card */
+        .claim-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .claim-card h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .claim-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 1rem 0;
+            text-align: center;
+        }
+
+        .time-left {
+            color: #b0b0b0;
+            margin-bottom: 0.5rem;
+        }
+
+        .time-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #40e0d0;
+        }
+
+        .claim-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4ade80;
+        }
+
+        .claim-btn {
+            margin-top: auto;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .claim-btn.active {
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .claim-btn.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(64, 224, 208, 0.3);
+        }
+
+        .claim-btn.disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: #b0b0b0;
+            cursor: not-allowed;
+        }
+
+        /* Earnings History */
+        .earnings-history {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+
+        .earnings-history h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: rgba(64, 224, 208, 0.1);
+        }
+
+        th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #40e0d0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem;
+            font-size: 0.875rem;
+            color: white;
+            border-bottom: 1px solid rgba(64, 224, 208, 0.1);
+        }
+
+        .amount-positive {
+            color: #4ade80;
+            font-weight: 500;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(64, 224, 208, 0.15);
+            padding: 20px 0;
+            z-index: 10;
+            border-radius: 30px 30px 0 0;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #888;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        .nav-item.active {
+            color: #40e0d0;
+            background: rgba(64, 224, 208, 0.1);
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+
+        .nav-text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Loading and Error States */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #40e0d0;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            color: #ff6b6b;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
+        .success-message {
+            color: #4ade80;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .main-content {
+                padding: 100px 15px 120px;
+            }
+
+            .sidebar {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="app-logo">
+            <div class="app-logo-icon">
+                <svg fill="white" viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+            </div>
+            <h2 class="app-logo-text">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+        </div>
+        
+        <div class="hamburger-menu" onclick="toggleSidebar()">
+            <svg class="hamburger-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2 style="font-size: 1.5rem; font-weight: bold;">
+                <span style="color: #fff;">Siemens</span>
+                <span style="color: #00ced1;">X</span>
+            </h2>
+            <button onclick="toggleSidebar()">✕</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="./home.html">Home</a>
+            <a href="./about.html">About Us</a>
+            <a href="./deposit.html">Deposit</a>
+            <a href="./cert.html">Certificate</a>
+            <a href="./faq.html">FAQ</a>
+            <a href="./terms.html">T&C</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="header">
+            <h1>Investment Dashboard</h1>
+            <div class="vip-badge">
+                <div class="vip-circle" id="vip-level">VIP</div>
+                <div id="vip-name">Premium Investor</div>
+            </div>
+        </div>
+
+        <!-- Main Cards -->
+        <div class="cards-grid">
+            <!-- Balance Card -->
+            <div class="card balance-card">
+                <div class="balance-header">
+                    <div>
+                        <p class="balance-label">Current Balance</p>
+                        <p class="balance-amount" id="current-balance">$0.00</p>
+                    </div>
+                    <span class="status-badge">Active</span>
+                </div>
+                <div class="profit-section">
+                    <p class="balance-label">Profit Balance</p>
+                    <p class="profit-amount" id="profit-balance">$0.00</p>
+                </div>
+            </div>
+
+            <!-- ROI Card -->
+            <div class="card roi-card">
+                <h3>Daily ROI</h3>
+                <div class="roi-content">
+                    <div class="roi-percentage" id="daily-roi">0%</div>
+                    <p class="roi-label">Current Daily Rate</p>
+                </div>
+            </div>
+
+            <!-- Claim Profit Card -->
+            <div class="card claim-card">
+                <h3>Daily Profit</h3>
+                <div class="claim-content" id="claim-content">
+                    <p class="time-left">Available to claim:</p>
+                    <p class="claim-amount" id="potential-profit">$0.00</p>
+                </div>
+                <button class="claim-btn disabled" id="claim-btn" onclick="claimDailyProfit()" disabled>
+                    Claim Daily Profit
+                </button>
+                <div id="claim-message"></div>
+            </div>
+        </div>
+
+        <!-- Earnings History -->
+        <div class="earnings-history">
+            <h2>Earnings History</h2>
+            <div id="earnings-loading" style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 1rem; color: #b0b0b0;">Loading earnings history...</p>
+            </div>
+            <table id="earnings-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="earnings-tbody">
+                </tbody>
+            </table>
+            <div id="no-earnings" style="display: none; text-align: center; padding: 2rem; color: #b0b0b0;">
+                No earnings history found
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="nav-container">
+            <a href="./home.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                <span class="nav-text">Home</span>
+            </a>
+            
+            <a href="./start.html" class="nav-item active">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                </svg>
+                <span class="nav-text">Start</span>
+            </a>
+            
+            <a href="./level.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span class="nav-text">Level</span>
+            </a>
+            
+            <a href="./profile.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span class="nav-text">Profile</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:5000/api';
+        
+        // Global variables
+        let userData = null;
+        let earningsData = null;
+        let claimTimer = null;
+        
+        // Utility functions
+        function getAuthToken() {
+            return localStorage.getItem('token');
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount || 0);
+        }
+        
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        function showMessage(elementId, message, type = 'error') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.className = type === 'success' ? 'success-message' : 'error-message';
+                element.textContent = message;
+                element.style.display = 'block';
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Authentication check
+        function checkAuth() {
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = './login.html';
+                return false;
+            }
+            return true;
+        }
+        
+        // API calls
+        async function fetchUserProfile() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = './login.html';
+                        return;
+                    }
+                    throw new Error('Failed to fetch profile');
+                }
+                
+                const data = await response.json();
+                userData = data.user;
+                updateUserProfile(data.user);
+                
+            } catch (error) {
+                console.error('Profile fetch error:', error);
+                showMessage('claim-message', 'Failed to load profile data');
+            }
+        }
+        
+        async function fetchEarningsInfo() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/earnings/daily`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch earnings info');
+                }
+                
+                const data = await response.json();
+                earningsData = data;
+                updateEarningsInfo(data);
+                
+            } catch (error) {
+                console.error('Earnings info fetch error:', error);
+                showMessage('claim-message', 'Failed to load earnings information');
+            }
+        }
+        
+        async function fetchEarningsHistory() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/transactions`, {
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // console.log(data);
+                    
+                    updateEarningsHistory(data.transactions || []);
+                } else {
+                    // If history endpoint doesn't exist, show no data
+                    updateEarningsHistory([]);
+                }
+                
+            } catch (error) {
+                console.error('Earnings history fetch error:', error);
+                updateEarningsHistory([]);
+            }
+        }
+
+
+           async function fetchWithdrawalInfo() {
+            try {
+                const response = await fetch('http://localhost:5000/api/withdrawal/info', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // console.log(data);
+                    
+                    document.getElementById('profit-balance').textContent = `$${parseFloat(data.profitBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                   
+                } else {
+                    throw new Error('Failed to fetch withdrawal info');
+                }
+            } catch (error) {
+                console.error('Withdrawal info fetch error:', error);
+                alert('Failed to load withdrawal info. Please try again.');
+            }
+        }
+        
+        // Update UI functions
+        function updateUserProfile(user) {
+            // Update balance
+            const currentBalance = document.getElementById('current-balance');
+            if (currentBalance) {
+                currentBalance.textContent = formatCurrency(user.balance);
+            }
+            
+            // // Update profit balance
+            // const profitBalance = document.getElementById('profit-balance');
+            // if (profitBalance) {
+            //     profitBalance.textContent = formatCurrency(user.profitBalance);
+            // }
+            
+            // Update VIP info
+            const vipLevel = document.getElementById('vip-level');
+            const vipName = document.getElementById('vip-name');
+            if (vipLevel && user.profile) {
+                vipLevel.textContent = `VIP${user.profile.vipLevel || 0}`;
+            }
+            if (vipName) {
+                vipName.textContent = getVipLevelName(user.profile?.vipLevel || 0);
+            }
+        }
+        
+        function updateEarningsInfo(data) {
+            // Update ROI percentage
+            const dailyRoi = document.getElementById('daily-roi');
+            if (dailyRoi && data.success) {
+                // Calculate ROI based on VIP level (from your backend VIP_LEVELS)
+                const roiPercentage = getVipRoi(data.vipLevel);
+                dailyRoi.textContent = `${roiPercentage}%`;
+            }
+            
+            // Update potential profit
+            const potentialProfit = document.getElementById('potential-profit');
+            if (potentialProfit && data.success) {
+                potentialProfit.textContent = formatCurrency(data.potentialDailyProfit);
+            }
+            
+            // Update claim button state
+            updateClaimButtonState(data);
+        }
+        
+        function updateClaimButtonState(data) {
+            const claimBtn = document.getElementById('claim-btn');
+            const claimContent = document.getElementById('claim-content');
+            
+            if (!claimBtn || !claimContent || !data.success) return;
+            
+            if (data.canClaim) {
+                // User can claim
+                claimContent.innerHTML = `
+                    <p class="time-left">Available to claim:</p>
+                    <p class="claim-amount">${formatCurrency(data.potentialDailyProfit)}</p>
+                `;
+                
+                claimBtn.classList.remove('disabled');
+                claimBtn.classList.add('active');
+                claimBtn.disabled = false;
+                claimBtn.textContent = 'Claim Daily Profit';
+                
+            } else if (data.nextAvailable) {
+                // User must wait
+                const nextAvailable = new Date(data.nextAvailable);
+                const now = new Date();
+                const timeDiff = nextAvailable.getTime() - now.getTime();
+                
+                if (timeDiff > 0) {
+                    startCountdown(timeDiff);
+                    claimBtn.classList.remove('active');
+                    claimBtn.classList.add('disabled');
+                    claimBtn.disabled = true;
+                }
+            }
+        }
+        
+        function updateEarningsHistory(history) {
+            const loadingDiv = document.getElementById('earnings-loading');
+            const table = document.getElementById('earnings-table');
+            const noEarnings = document.getElementById('no-earnings');
+            const tbody = document.getElementById('earnings-tbody');
+            
+            // Hide loading
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            
+            if (history.length === 0) {
+                // Show no earnings message
+                if (table) table.style.display = 'none';
+                if (noEarnings) noEarnings.style.display = 'block';
+                return;
+            }
+            
+            // Show table and populate data
+            if (table) table.style.display = 'table';
+            if (noEarnings) noEarnings.style.display = 'none';
+            
+            if (tbody) {
+                tbody.innerHTML = history.map(earning => `
+                    <tr>
+                        <td>${formatDate(earning.date)}</td>
+                        <td class="amount-positive">${formatCurrency(earning.amount)}</td>
+                        <td>Daily ROI</td>
+                        <td>Completed</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // Helper functions
+        function getVipLevelName(level) {
+            const names = {
+                0: 'Basic Investor',
+                1: 'Bronze Investor',
+                2: 'Silver Investor', 
+                3: 'Gold Investor',
+                4: 'Premium Investor'
+            };
+            return names[level] || 'Premium Investor';
+        }
+        
+        function getVipRoi(level) {
+            const roiRates = {
+                0: 0,
+                1: 0.5,
+                2: 0.6,
+                3: 0.9,
+                4: 1.2
+            };
+            return roiRates[level] || 0;
+        }
+        
+        // Countdown timer
+               function startCountdown(initialTimeMs) {
+            if (claimTimer) clearInterval(claimTimer);
+            
+            let remainingTime = initialTimeMs;
+            const claimContent = document.getElementById('claim-content');
+            const claimBtn = document.getElementById('claim-btn');
+            
+            if (!claimContent || !claimBtn) return;
+            
+            claimTimer = setInterval(() => {
+                remainingTime -= 1000;
+                
+                if (remainingTime <= 0) {
+                    clearInterval(claimTimer);
+                    // Refresh earnings info when countdown finishes
+                    fetchEarningsInfo();
+                    return;
+                }
+                
+                const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+                const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+                
+                claimContent.innerHTML = `
+                    <p class="time-left">Next claim in:</p>
+                    <p class="time-amount">${hours}h ${minutes}m ${seconds}s</p>
+                `;
+            }, 1000);
+        }
+        
+        // Claim daily profit
+        async function claimDailyProfit() {
+            const claimBtn = document.getElementById('claim-btn');
+            if (!claimBtn || claimBtn.disabled) return;
+            
+            try {
+                claimBtn.disabled = true;
+                claimBtn.classList.add('disabled');
+                claimBtn.classList.remove('active');
+                claimBtn.textContent = 'Processing...';
+                
+                const response = await fetch(`${API_BASE_URL}/earnings/claim`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to claim profit');
+                }
+                
+                // Refresh data
+                await Promise.all([
+                    fetchUserProfile(),
+                    fetchEarningsInfo(),
+                    fetchEarningsHistory()
+                ]);
+                
+                showMessage('claim-message', 'Profit claimed successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Claim error:', error);
+                showMessage('claim-message', error.message || 'Failed to claim profit');
+                
+                // Re-enable button on error
+                claimBtn.disabled = false;
+                claimBtn.classList.remove('disabled');
+                claimBtn.classList.add('active');
+                claimBtn.textContent = 'Claim Daily Profit';
+            }
+        }
+        
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('visible');
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '../index.html';
+        }
+        
+        // Initialize dashboard
+        async function initDashboard() {
+            if (!checkAuth()) return;
+            
+            try {
+                await Promise.all([
+                    fetchUserProfile(),
+                    fetchEarningsInfo(),
+                    fetchEarningsHistory(),
+                    fetchWithdrawalInfo()
+                ]);
+            } catch (error) {
+                console.error('Dashboard initialization error:', error);
+                showMessage('claim-message', 'Failed to initialize dashboard');
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+            
+            // Add click event listener to close sidebar when clicking outside
+            document.addEventListener('click', (event) => {
+                const sidebar = document.getElementById('sidebar');
+                const hamburger = document.querySelector('.hamburger-menu');
+                
+                if (sidebar && hamburger && sidebar.classList.contains('visible')) {
+                    if (!sidebar.contains(event.target) && !hamburger.contains(event.target)) {
+                        sidebar.classList.remove('visible');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

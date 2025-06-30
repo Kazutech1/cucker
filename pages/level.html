@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP Levels | Cuker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            padding: 80px 20px 120px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #40e0d0;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            color: #b0b0b0;
+            font-size: 0.9rem;
+        }
+
+        .level-cards-container {
+            position: relative;
+            height: 400px;
+            perspective: 1000px; /* Enable 3D perspective for stacking */
+            overflow: visible; /* Allow cards to be visible outside container */
+            margin-bottom: 30px;
+        }
+
+        .level-cards {
+            display: flex;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .level-card {
+            min-width: 90%; /* Slightly smaller for stacking visibility */
+            background: #000000;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 30px 25px;
+            text-align: center;
+            position: absolute; /* Position cards individually */
+            transition: transform 0.5s ease-in-out, z-index 0s;
+            transform: translateX(0) scale(0.8); /* Default scale for non-active cards */
+            z-index: 1;
+        }
+
+        .level-card.active {
+            transform: translateX(0) scale(1); /* Active card is full size */
+            z-index: 3;
+        }
+
+        .level-card.next {
+            transform: translateX(15%) scale(0.9); /* Offset right */
+            z-index: 2;
+        }
+
+        .level-card.prev {
+            transform: translateX(-15%) scale(0.9); /* Offset left */
+            z-index: 2;
+        }
+
+        .level-card.vip-0 {
+            border-color: #a9a9a9;
+            background: linear-gradient(135deg, #a9a9a9, #808080);
+        }
+
+        .level-card.vip-1 {
+            border-color: #cd7f32;
+            background: linear-gradient(135deg, #cd7f32, #b8860b);
+        }
+
+        .level-card.vip-2 {
+            border-color: #c0c0c0;
+            background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
+        }
+
+        .level-card.vip-3 {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, #ffd700, #ffb347);
+        }
+
+        .level-card.vip-4 {
+            border-color: #8a2be2;
+            background: linear-gradient(135deg, #8a2be2, #9932cc);
+        }
+
+        .level-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .vip-0 .level-icon {
+            background: linear-gradient(135deg, #a9a9a9, #808080);
+            color: white;
+        }
+
+        .vip-1 .level-icon {
+            background: linear-gradient(135deg, #cd7f32, #b8860b);
+            color: white;
+        }
+
+        .vip-2 .level-icon {
+            background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
+            color: #333;
+        }
+
+        .vip-3 .level-icon {
+            background: linear-gradient(135deg, #ffd700, #ffb347);
+            color: #333;
+        }
+
+        .vip-4 .level-icon {
+            background: linear-gradient(135deg, #8a2be2, #9932cc);
+            color: white;
+        }
+
+        .level-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .level-requirement {
+            color: #ffffff;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+
+        .benefits-list {
+            text-align: left;
+        }
+
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+
+        .benefit-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            color: #40e0d0;
+        }
+
+        .level-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(64, 224, 208, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator.active {
+            background: #40e0d0;
+            transform: scale(1.2);
+        }
+
+        .current-level {
+            background: rgba(64, 224, 208, 0.1);
+            border: 1px solid rgba(64, 224, 208, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .current-level-text {
+            color: #40e0d0;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .current-level-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(64, 224, 208, 0.2);
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #40e0d0, #00ced1);
+            border-radius: 3px;
+            width: 60%;
+            transition: width 0.3s ease;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-logo {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 20px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #40e0d0, #00ced1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-logo-text {
+            color: #40e0d0;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .hamburger-menu {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(64, 224, 208, 0.15);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-menu:hover {
+            background: rgba(64, 224, 208, 0.1);
+            transform: scale(1.05);
+        }
+
+        .hamburger-icon {
+            width: 24px;
+            height: 24px;
+            color: #40e0d0;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(64, 224, 208, 0.15);
+            padding: 20px 0;
+            z-index: 10;
+            border-radius: 30px 30px 0 0;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #888;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        .nav-item.active {
+            color: #40e0d0;
+            background: rgba(64, 224, 208, 0.1);
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+
+        .nav-text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 80px 15px 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="app-logo">
+            <div class="app-logo-icon">
+                <svg fill="white" viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+            </div>
+            <h2 style="font-size: 2rem; font-weight: bold;">
+  <span style="color: #fff;">Siemens</span>
+  <span style="color: #00ced1;">X</span>
+</h2>
+
+        </div>
+        
+        <div class="hamburger-menu" onclick="toggleSidebar()">
+            <svg class="hamburger-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">VIP Levels</h1>
+            <p class="page-subtitle">Unlock exclusive benefits as you level up</p>
+        </div>
+
+        <div class="level-cards-container">
+            <div class="level-cards" id="levelCards">
+                <!-- VIP 0 -->
+                <div class="level-card vip-0">
+                    <div class="level-icon">0</div>
+                    <h2 class="level-title">VIP 0</h2>
+                    <p class="level-requirement">Starting Level</p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Basic trading access
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Standard support
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Daily market updates
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIP 1 -->
+                <div class="level-card vip-1">
+                    <div class="level-icon">1</div>
+                    <h2 class="level-title">VIP 1</h2>
+                    <p class="level-requirement">
+                        0.5% profit per order<br>
+                        40 apps per set<br>
+                        Min. balance: $50
+                    </p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            5% bonus on deposits
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Priority support
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Weekly market analysis
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIP 2 -->
+                <div class="level-card vip-2">
+                    <div class="level-icon">2</div>
+                    <h2 class="level-title">VIP 2</h2>
+                    <p class="level-requirement">
+                        0.6% profit per order<br>
+                        45 apps per set<br>
+                        Min. balance: $1,000
+                    </p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            10% bonus on deposits
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Dedicated account manager
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Advanced trading tools
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIP 3 -->
+                <div class="level-card vip-3 active">
+                    <div class="level-icon">3</div>
+                    <h2 class="level-title">VIP 3</h2>
+                    <p class="level-requirement">
+                        0.9% profit per order<br>
+                        50 apps per set<br>
+                        Min. balance: $4,000
+                    </p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            15% bonus on deposits
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Personal trading coach
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Exclusive market insights
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIP 4 -->
+                <div class="level-card vip-4">
+                    <div class="level-icon">4</div>
+                    <h2 class="level-title">VIP 4</h2>
+                    <p class="level-requirement">
+                        1.2% profit per order<br>
+                        60 apps per set<br>
+                        Min. balance: $10,000
+                    </p>
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            20% bonus on deposits
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            24/7 premium support
+                        </div>
+                        <div class="benefit-item">
+                            <svg class="benefit-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Private trading signals
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="level-indicators" id="levelIndicators">
+            <div class="indicator active" data-level="0"></div>
+            <div class="indicator" data-level="1"></div>
+            <div class="indicator" data-level="2"></div>
+            <div class="indicator" data-level="3"></div>
+            <div class="indicator" data-level="4"></div>
+        </div>
+
+        <div class="current-level">
+            <div class="current-level-text">Your Current Level</div>
+            <div class="current-level-title">VIP 3</div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-container">
+            <a href="./home.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                <span class="nav-text">Home</span>
+            </a>
+            
+            <a href="./start.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                </svg>
+                <span class="nav-text">Start</span>
+            </a>
+            
+            <a href="#" class="nav-item active">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span class="nav-text">Level</span>
+            </a>
+            
+            <a href="./profile.html" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span class="nav-text">Profile</span>
+            </a>
+        </div>
+    </nav>
+
+
+    <div id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <h2 style="font-size: 2rem; font-weight: bold;">
+  <span style="color: #fff;">Siemens</span>
+  <span style="color: #00ced1;">X</span>
+</h2>
+
+    <button onclick="toggleSidebar()">✕</button>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="./home.html">Home</a>
+    <a href="./about.html">About Us</a>
+     <a href="./deposit.html">Deposit</a>
+    <a href="./cert.html">Certificate</a>
+    <a href="./faq.html">FAQ</a>
+    <a href="./terms.html">T&amp;C</a>
+   
+    
+  </nav>
+</div>
+
+<style>
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(64, 224, 208, 0.15);
+    padding: 20px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+    transform: translateX(-100%);
+    transition: transform 0.35s ease-in-out;
+    z-index: 999;
+  }
+
+  .sidebar.visible {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #40e0d0;
+    margin-bottom: 30px;
+  }
+
+  .sidebar-header h2 {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+
+  .sidebar-header button {
+    background: none;
+    border: none;
+    color: #40e0d0;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-nav a {
+    color: white;
+    text-decoration: none;
+    padding: 12px 0;
+    font-size: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+  }
+
+  .sidebar-nav a:hover {
+    color: #40e0d0;
+    padding-left: 10px;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 80%;
+    }
+  }
+</style>
+
+
+   <script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('visible');
+    }
+
+    // Initialize with default values
+    let currentLevel = 0;
+    const totalLevels = 5;
+    const levelCards = document.getElementById('levelCards');
+    const cards = document.querySelectorAll('.level-card');
+    const indicators = document.querySelectorAll('.indicator');
+    const token = localStorage.getItem('token');
+    const currentLevelTitle = document.querySelector('.current-level-title');
+    const currentLevelText = document.querySelector('.current-level-text');
+
+    // Set initial active level (VIP 3 as shown in the HTML)
+    updateLevel(3);
+
+    // Fetch user's actual VIP level from API
+    async function fetchUserVipLevel() {
+        if (!token) {
+            console.log('No token found, using default level');
+            return;
+        }
+
+        try {
+            const response = await fetch('http://localhost:5000/api/vip/my-level', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('VIP level data:', data);
+                
+                // Update current level display
+                currentLevelTitle.textContent = `VIP ${data.level}`;
+                currentLevelText.textContent = `Your Current Level: ${data.name}`;
+                
+                // Update the active card to show user's actual level
+                updateLevel(data.level);
+                
+            } else {
+                throw new Error('Failed to fetch user VIP level');
+            }
+        } catch (error) {
+            console.error('User VIP level fetch error:', error);
+            currentLevelTitle.textContent = 'VIP 0';
+            currentLevelText.textContent = 'Your Current Level: Basic';
+        }
+    }
+
+    // Call the API when page loads
+    document.addEventListener('DOMContentLoaded', fetchUserVipLevel);
+
+    function updateLevel(level) {
+        // Ensure level is within bounds
+        level = Math.max(0, Math.min(level, totalLevels - 1));
+        currentLevel = level;
+
+        // Update card classes for stacking effect
+        cards.forEach((card, index) => {
+            card.classList.remove('active', 'next', 'prev');
+            
+            if (index === level) {
+                card.classList.add('active');
+            } else if (index === level + 1) {
+                card.classList.add('next');
+            } else if (index === level - 1) {
+                card.classList.add('prev');
+            }
+        });
+
+        // Update indicators
+        indicators.forEach((indicator, index) => {
+            indicator.classList.toggle('active', index === level);
+        });
+    }
+
+    // Touch events for mobile swiping
+    levelCards.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = true;
+    });
+
+    levelCards.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+        
+        const diffX = startX - currentX;
+        const diffY = startY - currentY;
+        
+        // Only allow horizontal swiping
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            e.preventDefault();
+        }
+    });
+
+    levelCards.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        const diffX = startX - currentX;
+        const threshold = 50;
+        
+        if (Math.abs(diffX) > threshold) {
+            if (diffX > 0 && currentLevel < totalLevels - 1) {
+                updateLevel(currentLevel + 1);
+            } else if (diffX < 0 && currentLevel > 0) {
+                updateLevel(currentLevel - 1);
+            }
+        }
+    });
+
+    // Mouse events for desktop
+    levelCards.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        isDragging = true;
+        levelCards.style.cursor = 'grabbing';
+    });
+
+    levelCards.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        currentX = e.clientX;
+    });
+
+    levelCards.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        levelCards.style.cursor = 'grab';
+        
+        const diffX = startX - currentX;
+        const threshold = 50;
+        
+        if (Math.abs(diffX) > threshold) {
+            if (diffX > 0 && currentLevel < totalLevels - 1) {
+                updateLevel(currentLevel + 1);
+            } else if (diffX < 0 && currentLevel > 0) {
+                updateLevel(currentLevel - 1);
+            }
+        }
+    });
+
+    levelCards.addEventListener('mouseleave', () => {
+        isDragging = false;
+        levelCards.style.cursor = 'grab';
+    });
+
+    // Indicator click functionality
+    indicators.forEach((indicator, index) => {
+        indicator.addEventListener('click', () => {
+            updateLevel(index);
+        });
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' && currentLevel > 0) {
+            updateLevel(currentLevel - 1);
+        } else if (e.key === 'ArrowRight' && currentLevel < totalLevels - 1) {
+            updateLevel(currentLevel + 1);
+        }
+    });
+</script>
+</body>
+</html>

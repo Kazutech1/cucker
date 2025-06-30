@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Deposits</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Admin Panel</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="withdrawals.html">Withdrawals</a></li>
+        <li><a href="deposits.html" class="active">Deposits</a></li>
+        <li><a href="vip.html">VIP Levels</a></li>
+         <li><a href="broadcast.html">Notifications</a></li>
+        <li><a href="wallet.html">Wallets</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div class="header">
+        <h1>Deposit Management</h1>
+      </div>
+      <div class="error-message" id="error-message" style="display: none;"></div>
+      
+      <div class="section" id="deposits-section">
+        <div class="filters">
+          <select id="depositStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input type="text" id="depositUserIdFilter" placeholder="Filter by User ID">
+        </div>
+        <div class="table-container">
+          <table id="deposits-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Amount</th>
+                <th>Proof Image</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title">Verify Deposit</h3>
+      <label for="actionId">ID</label>
+      <input type="text" id="actionId" readonly>
+      <label for="actionStatus">Status</label>
+      <select id="actionStatus">
+        <option value="verified">Verified</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <label for="proofImageLabel">Proof Image</label>
+      <img id="proofImage" style="max-width: 100%; height: auto; margin: 10px 0;">
+      <div class="modal-buttons">
+        <button class="action-btn approve-btn" onclick="submitAction()">Submit</button>
+        <button class="action-btn reject-btn" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script>
+    // Fetch and populate deposits
+    const fetchDeposits = async (status = '', userId = '') => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (status) queryParams.append('status', status);
+        if (userId) queryParams.append('userId', userId);
+        const response = await fetch(`${API_BASE_URL}/deposits?${queryParams.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch deposits');
+        }
+        const depositsData = await response.json();
+        renderDeposits(depositsData);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render deposits table
+    const renderDeposits = (deposits) => {
+      const tbody = document.querySelector('#deposits-table tbody');
+      tbody.innerHTML = deposits.map(deposit => `
+        <tr>
+          <td>${deposit.id}</td>
+          <td>${deposit.user.username} (${deposit.user.id})</td>
+          <td>${formatCurrency(deposit.amount)}</td>
+          <td><a href="${deposit.proofImage}" target="_blank">View Proof</a></td>
+          <td>${deposit.status}</td>
+          <td>${formatDate(deposit.createdAt)}</td>
+          <td>
+            ${deposit.status === 'pending' ? `
+              <button class="action-btn approve-btn" onclick="openProcessModal('deposit', '${deposit.id}', '${deposit.proofImage}')">Verify</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // Open process modal
+    const openProcessModal = (type, id, proofImage = '') => {
+      document.getElementById('modal-title').textContent = 'Verify Deposit';
+      document.getElementById('actionId').value = id;
+      document.getElementById('actionStatus').value = 'verified';
+      document.getElementById('proofImage').src = proofImage;
+      document.getElementById('modal').style.display = 'flex';
+    };
+
+    // Close modal
+    const closeModal = () => {
+      document.getElementById('modal').style.display = 'none';
+    };
+
+    // Submit action
+    const submitAction = async () => {
+      const actionId = document.getElementById('actionId').value;
+      const status = document.getElementById('actionStatus').value;
+
+      try {
+        const body = {
+          depositId: actionId,
+          status
+        };
+
+        const response = await fetch(`${API_BASE_URL}/deposits/verify`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to verify deposit');
+        }
+        const data = await response.json();
+        alert(data.message);
+        closeModal();
+        fetchDeposits();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Filter deposits
+    const filterDeposits = () => {
+      const statusFilter = document.getElementById('depositStatusFilter').value;
+      const userIdFilter = document.getElementById('depositUserIdFilter').value;
+      fetchDeposits(statusFilter, userIdFilter);
+    };
+
+    // Event listeners
+    document.getElementById('depositStatusFilter').addEventListener('change', filterDeposits);
+    document.getElementById('depositUserIdFilter').addEventListener('input', filterDeposits);
+
+    // Initial fetch
+    fetchDeposits();
+  </script>
+</body>
+</html>

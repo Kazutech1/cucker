@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login | SiemensX</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 400px;
+      width: 100%;
+      margin: 100px auto;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(64, 224, 208, 0.2);
+      border-radius: 15px;
+      padding: 25px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #40e0d0, #00ced1);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .error-message {
+      display: none;
+      color: #ff5e5e;
+      background: rgba(255, 94, 94, 0.1);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #b0b0b0;
+      font-size: 0.9rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(64, 224, 208, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #40e0d0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #40e0d0, #00ced1);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(64, 224, 208, 0.3);
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 15px;
+      }
+
+      .page-title {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="page-header">
+        <h1 class="page-title">Admin Login</h1>
+      </div>
+      <div id="error-message" class="error-message"></div>
+      <form id="admin-login-form" onsubmit="handleAdminLogin(event)">
+        <div class="input-group">
+          <label for="login">Email/Username/Phone</label>
+          <input type="text" id="login" name="login" placeholder="Enter your login credential" required />
+        </div>
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" required />
+        </div>
+        <button type="submit" class="submit-btn">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    async function handleAdminLogin(event) {
+      event.preventDefault();
+
+      const login = document.getElementById('login').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMessage = document.getElementById('error-message');
+
+      if (!login || !password) {
+        errorMessage.textContent = 'Please fill in all fields.';
+        errorMessage.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            login: login, 
+            password: password 
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Store token and user data
+          localStorage.setItem('admin_token', data.token);
+          localStorage.setItem('admin_user', JSON.stringify(data.user));
+          
+          // Redirect to dashboard
+          window.location.href = '/admin/dashboard.html';
+        } else {
+          // Handle API error responses
+          if (response.status === 400) {
+            throw new Error('Missing credentials or invalid format');
+          } else if (response.status === 401) {
+            throw new Error('Invalid credentials');
+          } else {
+            throw new Error(data.message || 'Login failed');
+          }
+        }
+      } catch (error) {
+        console.error('Admin login error:', error);
+        errorMessage.textContent = error.message;
+        errorMessage.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Notifications Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Admin Panel</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="withdrawals.html">Withdrawals</a></li>
+        <li><a href="deposits.html">Deposits</a></li>
+        <li><a href="vip.html">VIP Levels</a></li>
+        <li><a href="broadcast.html" class="active">Notifications</a></li>
+        <li><a href="wallet.html">Wallets</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div class="header">
+        <h1>Notifications Management</h1>
+      </div>
+      <div class="error-message" id="error-message" style="display: none;"></div>
+      
+      <!-- Create Notification Section -->
+      <div class="section" id="create-notification-section">
+        <h2>Send New Notification</h2>
+        <div class="form-container">
+          <div class="form-group">
+            <label for="notificationTitle">Title</label>
+            <input type="text" id="notificationTitle" placeholder="Enter notification title" maxlength="100">
+          </div>
+          
+          <div class="form-group">
+            <label for="notificationMessage">Message</label>
+            <textarea id="notificationMessage" placeholder="Enter notification message" rows="4" maxlength="500"></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="notificationType">Type</label>
+            <select id="notificationType">
+              <option value="info">Info</option>
+              <option value="success">Success</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+              <option value="announcement">Announcement</option>
+            </select>
+          </div>
+          
+          <div class="form-buttons">
+            <button class="action-btn approve-btn" onclick="sendNotification()">Send Notification</button>
+            <button class="action-btn reject-btn" onclick="clearNotificationForm()">Clear Form</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notifications List Section -->
+      <div class="section" id="notifications-list-section">
+        <h2>All Notifications</h2>
+        <div class="filters">
+          <select id="typeFilter">
+            <option value="">All Types</option>
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="announcement">Announcement</option>
+          </select>
+          <select id="statusFilter">
+            <option value="">All Status</option>
+            <option value="false">Unread</option>
+            <option value="true">Read</option>
+          </select>
+          <select id="limitFilter">
+            <option value="">All</option>
+            <option value="10">Last 10</option>
+            <option value="25">Last 25</option>
+            <option value="50">Last 50</option>
+            <option value="100">Last 100</option>
+          </select>
+          <button class="action-btn approve-btn" onclick="refreshNotifications()">Refresh</button>
+        </div>
+        <div class="table-container">
+          <table id="notifications-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Message</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Notification Modal -->
+  <div id="notification-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="notification-modal-title">Notification Details</h3>
+      <div class="notification-details">
+        <div class="detail-group">
+          <label>Title:</label>
+          <p id="modal-notification-title"></p>
+        </div>
+        <div class="detail-group">
+          <label>Message:</label>
+          <p id="modal-notification-message"></p>
+        </div>
+        <div class="detail-group">
+          <label>Type:</label>
+          <span id="modal-notification-type" class="type-badge"></span>
+        </div>
+        <div class="detail-group">
+          <label>Status:</label>
+          <span id="modal-notification-status" class="status-badge"></span>
+        </div>
+        <div class="detail-group">
+          <label>Created At:</label>
+          <p id="modal-notification-created"></p>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="action-btn reject-btn" onclick="closeNotificationModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="delete-modal" class="modal">
+    <div class="modal-content">
+      <h3>Confirm Delete</h3>
+      <p>Are you sure you want to delete this notification? This action cannot be undone.</p>
+      <div class="modal-buttons">
+        <button class="action-btn reject-btn" onclick="confirmDelete()">Delete</button>
+        <button class="action-btn approve-btn" onclick="closeDeleteModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script>
+    let notificationToDelete = null;
+
+    // Send new notification
+    const sendNotification = async () => {
+      const title = document.getElementById('notificationTitle').value.trim();
+      const message = document.getElementById('notificationMessage').value.trim();
+      const type = document.getElementById('notificationType').value;
+
+      if (!title || !message) {
+        showError('Title and message are required');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/notifications`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title,
+            message,
+            type
+          })
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to send notification');
+        }
+
+        const data = await response.json();
+        alert(data.message);
+        clearNotificationForm();
+        fetchNotifications();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Clear notification form
+    const clearNotificationForm = () => {
+      document.getElementById('notificationTitle').value = '';
+      document.getElementById('notificationMessage').value = '';
+      document.getElementById('notificationType').value = 'info';
+    };
+
+    // Fetch notifications with filters
+    const fetchNotifications = async () => {
+      try {
+        const type = document.getElementById('typeFilter').value;
+        const isRead = document.getElementById('statusFilter').value;
+        const limit = document.getElementById('limitFilter').value;
+        
+        const queryParams = new URLSearchParams();
+        if (type) queryParams.append('type', type);
+        if (isRead) queryParams.append('isRead', isRead);
+        if (limit) queryParams.append('limit', limit);
+        
+        const response = await fetch(`${API_BASE_URL}/admin/notifications?${queryParams.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch notifications');
+        }
+
+        const data = await response.json();
+        renderNotifications(data.data);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render notifications table
+    const renderNotifications = (notifications) => {
+      const tbody = document.querySelector('#notifications-table tbody');
+      tbody.innerHTML = notifications.map(notification => `
+        <tr>
+          <td>${notification.id}</td>
+          <td class="notification-title">${truncateText(notification.title, 30)}</td>
+          <td class="notification-message">${truncateText(notification.message, 50)}</td>
+          <td><span class="type-badge type-${notification.type}">${capitalizeFirst(notification.type)}</span></td>
+          <td><span class="status-badge ${notification.isRead ? 'status-read' : 'status-unread'}">${notification.isRead ? 'Read' : 'Unread'}</span></td>
+          <td>${formatDateTime(notification.createdAt)}</td>
+          <td>
+            <button class="action-btn approve-btn" onclick="viewNotification('${notification.id}', '${escapeHtml(notification.title)}', '${escapeHtml(notification.message)}', '${notification.type}', ${notification.isRead}, '${notification.createdAt}')">View</button>
+            <button class="action-btn reject-btn" onclick="openDeleteModal('${notification.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // View notification details
+    const viewNotification = (id, title, message, type, isRead, createdAt) => {
+      document.getElementById('modal-notification-title').textContent = title;
+      document.getElementById('modal-notification-message').textContent = message;
+      document.getElementById('modal-notification-type').textContent = capitalizeFirst(type);
+      document.getElementById('modal-notification-type').className = `type-badge type-${type}`;
+      document.getElementById('modal-notification-status').textContent = isRead ? 'Read' : 'Unread';
+      document.getElementById('modal-notification-status').className = `status-badge ${isRead ? 'status-read' : 'status-unread'}`;
+      document.getElementById('modal-notification-created').textContent = formatDateTimeFull(createdAt);
+      document.getElementById('notification-modal').style.display = 'flex';
+    };
+
+    // Close notification modal
+    const closeNotificationModal = () => {
+      document.getElementById('notification-modal').style.display = 'none';
+    };
+
+    // Open delete confirmation modal
+    const openDeleteModal = (notificationId) => {
+      notificationToDelete = notificationId;
+      document.getElementById('delete-modal').style.display = 'flex';
+    };
+
+    // Close delete modal
+    const closeDeleteModal = () => {
+      notificationToDelete = null;
+      document.getElementById('delete-modal').style.display = 'none';
+    };
+
+    // Confirm delete notification
+    const confirmDelete = async () => {
+      if (!notificationToDelete) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/notifications/${notificationToDelete}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to delete notification');
+        }
+
+        const data = await response.json();
+        alert(data.message);
+        closeDeleteModal();
+        fetchNotifications();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Refresh notifications
+    const refreshNotifications = () => {
+      fetchNotifications();
+    };
+
+    // Utility functions
+    const truncateText = (text, maxLength) => {
+      return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    };
+
+    const capitalizeFirst = (str) => {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    };
+
+    const escapeHtml = (text) => {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
+    const formatDateTime = (dateString) => {
+      return new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString();
+    };
+
+    const formatDateTimeFull = (dateString) => {
+      return new Date(dateString).toLocaleString();
+    };
+
+    // Event listeners
+    document.getElementById('typeFilter').addEventListener('change', fetchNotifications);
+    document.getElementById('statusFilter').addEventListener('change', fetchNotifications);
+    document.getElementById('limitFilter').addEventListener('change', fetchNotifications);
+
+    // Character counter for textarea
+    document.getElementById('notificationMessage').addEventListener('input', function() {
+      const maxLength = 500;
+      const currentLength = this.value.length;
+      const remaining = maxLength - currentLength;
+      
+      // Add character counter if it doesn't exist
+      let counter = document.getElementById('message-counter');
+      if (!counter) {
+        counter = document.createElement('div');
+        counter.id = 'message-counter';
+        counter.style.fontSize = '12px';
+        counter.style.color = '#666';
+        counter.style.textAlign = 'right';
+        counter.style.marginTop = '5px';
+        this.parentNode.appendChild(counter);
+      }
+      
+      counter.textContent = `${currentLength}/${maxLength} characters`;
+      counter.style.color = remaining < 50 ? '#ff6b6b' : '#666';
+    });
+
+    // Character counter for title
+    document.getElementById('notificationTitle').addEventListener('input', function() {
+      const maxLength = 100;
+      const currentLength = this.value.length;
+      const remaining = maxLength - currentLength;
+      
+      // Add character counter if it doesn't exist
+      let counter = document.getElementById('title-counter');
+      if (!counter) {
+        counter = document.createElement('div');
+        counter.id = 'title-counter';
+        counter.style.fontSize = '12px';
+        counter.style.color = '#666';
+        counter.style.textAlign = 'right';
+        counter.style.marginTop = '5px';
+        this.parentNode.appendChild(counter);
+      }
+      
+      counter.textContent = `${currentLength}/${maxLength} characters`;
+      counter.style.color = remaining < 10 ? '#ff6b6b' : '#666';
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', function(event) {
+      const notificationModal = document.getElementById('notification-modal');
+      const deleteModal = document.getElementById('delete-modal');
+      
+      if (event.target === notificationModal) {
+        closeNotificationModal();
+      }
+      if (event.target === deleteModal) {
+        closeDeleteModal();
+      }
+    });
+
+    // Initial fetch
+    fetchNotifications();
+  </script>
+
+  <style>
+    /* Additional styles specific to notifications page */
+    .form-container {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .notification-title,
+    .notification-message {
+      max-width: 200px;
+      word-wrap: break-word;
+    }
+
+    .type-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .type-info { background: #e3f2fd; color: #1976d2; }
+    .type-success { background: #e8f5e8; color: #2e7d32; }
+    .type-warning { background: #fff3e0; color: #f57c00; }
+    .type-error { background: #ffebee; color: #d32f2f; }
+    .type-announcement { background: #f3e5f5; color: #7b1fa2; }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-read { background: #e8f5e8; color: #2e7d32; }
+    .status-unread { background: #fff3e0; color: #f57c00; }
+
+    .notification-details .detail-group {
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .notification-details .detail-group:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .notification-details label {
+      font-weight: 600;
+      color: #333;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .notification-details p {
+      margin: 0;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filters select {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+    }
+
+    @media (max-width: 768px) {
+      .form-buttons {
+        flex-direction: column;
+      }
+      
+      .filters {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .notification-title,
+      .notification-message {
+        max-width: 150px;
+      }
+    }
+  </style>
+</body>
+</html>

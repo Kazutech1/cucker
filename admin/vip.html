@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - VIP Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Admin Panel</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="withdrawals.html">Withdrawals</a></li>
+        <li><a href="deposits.html">Deposits</a></li>
+        <li><a href="vip.html" class="active">VIP Levels</a></li>
+        <li><a href="broadcast.html">Notifications</a></li>
+        <li><a href="wallet.html">Wallets</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div class="header">
+        <h1>VIP Management</h1>
+      </div>
+      <div class="error-message" id="error-message" style="display: none;"></div>
+      
+      <!-- VIP Levels Section -->
+      <div class="section" id="vip-levels-section">
+        <h2>VIP Levels Configuration</h2>
+        <div class="table-container">
+          <table id="vip-levels-table">
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Name</th>
+                <th>Profit Per Order</th>
+                <th>Min Balance Required</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- User VIP Management Section -->
+      <div class="section" id="user-vip-section">
+        <h2>User VIP Management</h2>
+        <div class="filters">
+          <select id="vipLevelFilter">
+            <option value="">All VIP Levels</option>
+            <option value="0">Level 0</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
+          </select>
+          <input type="text" id="userSearchFilter" placeholder="Search by username or ID">
+          <button class="action-btn approve-btn" onclick="openUpdateVipModal()">Update User VIP</button>
+        </div>
+        <div class="table-container">
+          <table id="users-vip-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Current VIP Level</th>
+                <th>Balance</th>
+                <th>Total Invested</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update VIP Modal -->
+  <div id="vip-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="vip-modal-title">Update User VIP Level</h3>
+      <label for="vipUserId">User ID</label>
+      <input type="text" id="vipUserId" placeholder="Enter user ID">
+      <label for="vipUserLevel">New VIP Level</label>
+      <select id="vipUserLevel">
+        <option value="0">Level 0 - Basic</option>
+        <option value="1">Level 1 - Silver</option>
+        <option value="2">Level 2 - Gold</option>
+        <option value="3">Level 3 - Platinum</option>
+        <option value="4">Level 4 - Diamond</option>
+        <option value="5">Level 5 - VIP</option>
+      </select>
+      <div class="modal-buttons">
+        <button class="action-btn approve-btn" onclick="submitVipUpdate()">Update VIP</button>
+        <button class="action-btn reject-btn" onclick="closeVipModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script>
+    // Fetch VIP levels configuration
+    const fetchVipLevels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/vip-levels`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch VIP levels');
+        }
+        const vipLevels = await response.json();
+        renderVipLevels(vipLevels);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render VIP levels table
+    const renderVipLevels = (levels) => {
+      const tbody = document.querySelector('#vip-levels-table tbody');
+      tbody.innerHTML = levels.map(level => `
+        <tr>
+          <td>${level.level}</td>
+          <td>${level.name}</td>
+          <td>${(level.profitPerOrder * 100).toFixed(2)}%</td>
+          <td>${formatCurrency(level.minBalance)}</td>
+          <td>
+            <button class="action-btn approve-btn" onclick="editVipLevel(${level.level})">Edit</button>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // Fetch users with VIP filter
+    const fetchUsersVip = async (vipLevel = '', search = '') => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (vipLevel) queryParams.append('vipLevel', vipLevel);
+        if (search) queryParams.append('search', search);
+        
+        const response = await fetch(`${API_BASE_URL}/users?${queryParams.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          throw new Error('Failed to fetch users');
+        }
+        const users = await response.json();
+        renderUsersVip(users);
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Render users VIP table
+    const renderUsersVip = (users) => {
+      const tbody = document.querySelector('#users-vip-table tbody');
+      tbody.innerHTML = users.map(user => `
+        <tr>
+          <td>${user.id}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>Level ${user.profile.vipLevel}</td>
+          <td>${formatCurrency(user.balance)}</td>
+          <td>${formatCurrency(user.profile.totalInvested)}</td>
+          <td>
+            <button class="action-btn approve-btn" onclick="openUpdateVipModal('${user.id}', ${user.profile.vipLevel})">Update VIP</button>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    // Open update VIP modal
+    const openUpdateVipModal = (userId = '', currentLevel = '') => {
+      document.getElementById('vipUserId').value = userId;
+      document.getElementById('vipUserLevel').value = currentLevel;
+      document.getElementById('vip-modal').style.display = 'flex';
+    };
+
+    // Close VIP modal
+    const closeVipModal = () => {
+      document.getElementById('vip-modal').style.display = 'none';
+    };
+
+    // Submit VIP update
+    const submitVipUpdate = async () => {
+      const userId = document.getElementById('vipUserId').value;
+      const level = parseInt(document.getElementById('vipUserLevel').value);
+
+      if (!userId) {
+        showError('User ID is required');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/vip`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            level
+          })
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+          if (response.status === 404) throw new Error('User not found');
+          throw new Error('Failed to update VIP level');
+        }
+        const data = await response.json();
+        alert(data.message);
+        closeVipModal();
+        fetchUsersVip();
+      } catch (error) {
+        showError(error.message);
+      }
+    };
+
+    // Edit VIP level (placeholder function)
+    const editVipLevel = (level) => {
+      alert(`Edit VIP Level ${level} functionality would be implemented here`);
+    };
+
+    // Filter users by VIP level
+    const filterUsersByVip = () => {
+      const vipLevelFilter = document.getElementById('vipLevelFilter').value;
+      const searchFilter = document.getElementById('userSearchFilter').value;
+      fetchUsersVip(vipLevelFilter, searchFilter);
+    };
+
+    // Event listeners
+    document.getElementById('vipLevelFilter').addEventListener('change', filterUsersByVip);
+    document.getElementById('userSearchFilter').addEventListener('input', filterUsersByVip);
+
+    // Initial fetch
+    fetchVipLevels();
+    fetchUsersVip();
+  </script>
+</body>
+</html>

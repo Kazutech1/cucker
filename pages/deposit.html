@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deposit Funds | SiemensX</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f0f23);
+      min-height: 100vh;
+      color: white;
+    }
+
+    .container {
+      padding: 80px 20px 120px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 15;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .back-button {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(64, 224, 208, 0.15);
+      border-radius: 16px;
+      padding: 12px;
+      cursor: pointer;
+    }
+
+    .back-icon {
+      width: 24px;
+      height: 24px;
+      color: #40e0d0;
+    }
+
+    .page-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #40e0d0, #00ced1);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .balance-card {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(64, 224, 208, 0.2);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .balance-label {
+      color: #b0b0b0;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #40e0d0;
+    }
+
+    .min-deposit {
+      margin-top: 10px;
+      color: #b0b0b0;
+      font-size: 0.9rem;
+    }
+
+    .deposit-form {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(64, 224, 208, 0.2);
+      border-radius: 15px;
+      padding: 25px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #b0b0b0;
+      font-size: 0.9rem;
+    }
+
+    .form-input, .form-select, .form-file {
+      width: 100%;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(64, 224, 208, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .form-input:focus, .form-select:focus, .form-file:focus {
+      outline: none;
+      border-color: #40e0d0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #40e0d0, #00ced1);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(64, 224, 208, 0.3);
+    }
+
+    .address-box {
+      word-break: break-all;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 5px;
+      font-size: 0.9rem;
+    }
+
+    .network-info {
+      font-size: 0.8rem;
+      color: #b0b0b0;
+      margin-top: 5px;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 80px 15px 120px;
+      }
+
+      .page-title {
+        font-size: 1.5rem;
+      }
+
+      .balance-amount {
+        font-size: 1.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button class="back-button" onclick="window.history.back()">
+      <svg class="back-icon" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+      </svg>
+    </button>
+    <div style="width: 52px;"></div>
+  </div>
+
+  <div class="container">
+    <h1 class="page-title">Crypto Deposit</h1>
+
+    <div class="balance-card">
+      <div class="balance-label">Current Balance</div>
+      <div id="balance-amount" class="balance-amount">$0.00</div>
+      <div id="min-deposit" class="min-deposit">Minimum deposit: $10</div>
+    </div>
+
+    <form id="deposit-form" class="deposit-form">
+      <div class="form-group">
+        <label class="form-label" for="amount">Deposit Amount (USD)</label>
+        <input type="number" id="amount" name="amount" class="form-input" 
+               placeholder="Enter amount to deposit" min="10" step="0.01" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="crypto-currency">Cryptocurrency</label>
+        <select id="crypto-currency" class="form-select" required>
+          <option value="" disabled selected>Select cryptocurrency</option>
+          <option value="BTC">Bitcoin (BTC)</option>
+          <option value="USDT">Tether (USDT)</option>
+          <option value="ETH">Ethereum (ETH)</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Deposit Address</label>
+        <div id="crypto-address" class="address-box">
+          Select a cryptocurrency to view address
+        </div>
+        <div id="crypto-network" class="network-info"></div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="tx-hash">Transaction Hash/ID</label>
+        <input type="text" id="tx-hash" class="form-input" 
+               placeholder="Enter transaction hash from your wallet" required />
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="proof-image">Transaction Proof (Optional)</label>
+        <input type="file" id="proof-image" name="proofImage" class="form-file" 
+               accept="image/jpeg,image/png,.pdf" />
+        <div class="network-info">Upload screenshot or PDF of your transaction (max 5MB)</div>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit Deposit</button>
+    </form>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    const cryptoAddresses = {
+      BTC: { address: '3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5', network: 'Bitcoin Mainnet' },
+      USDT: { address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', network: 'ERC20' },
+      ETH: { address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', network: 'Ethereum Mainnet' }
+    };
+
+    // Fetch user profile to get balance
+    async function fetchUserProfile() {
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.message === 'Profile retrieved successfully') {
+            document.getElementById('balance-amount').textContent = 
+              `$${parseFloat(data.user.balance).toFixed(2)}`;
+            return data.user;
+          }
+        }
+        throw new Error('Failed to fetch profile');
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+        alert('Failed to load profile data. Please try again.');
+        window.location.href = '../index.html';
+      }
+    }
+
+    // Handle crypto currency change
+    function handleCryptoChange() {
+      const currency = document.getElementById('crypto-currency').value;
+      if (currency && cryptoAddresses[currency]) {
+        document.getElementById('crypto-address').textContent = cryptoAddresses[currency].address;
+        document.getElementById('crypto-network').textContent = `Network: ${cryptoAddresses[currency].network}`;
+      }
+    }
+
+    // Submit deposit form
+    async function handleDepositSubmit(event) {
+      event.preventDefault();
+      
+      const amount = parseFloat(document.getElementById('amount').value);
+      const currency = document.getElementById('crypto-currency').value;
+      const txHash = document.getElementById('tx-hash').value;
+      const proofImage = document.getElementById('proof-image').files[0];
+      
+      if (amount < 10) {
+        alert('Minimum deposit amount is $10');
+        return;
+      }
+      
+      if (!currency) {
+        alert('Please select a cryptocurrency');
+        return;
+      }
+      
+      if (!txHash) {
+        alert('Please enter your transaction hash');
+        return;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('amount', amount);
+        formData.append('currency', currency);
+        formData.append('txHash', txHash);
+        if (proofImage) formData.append('proofImage', proofImage);
+        
+        const response = await fetch('http://localhost:5000/api/deposit/submit', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          alert(data.message || 'Deposit submitted successfully!');
+          document.getElementById('deposit-form').reset();
+          await fetchUserProfile(); // Refresh balance
+        } else {
+          throw new Error(data.message || 'Deposit submission failed');
+        }
+      } catch (error) {
+        console.error('Deposit error:', error);
+        alert(`Deposit failed: ${error.message}`);
+      }
+    }
+
+    // Initialize page
+    async function initializePage() {
+      if (!token) {
+        alert('Please log in to deposit funds.');
+        window.location.href = '../index.html';
+        return;
+      }
+      
+      // Set up event listeners
+      document.getElementById('crypto-currency').addEventListener('change', handleCryptoChange);
+      document.getElementById('deposit-form').addEventListener('submit', handleDepositSubmit);
+      
+      // Load user data
+      await fetchUserProfile();
+    }
+
+    // Start the page when loaded
+    document.addEventListener('DOMContentLoaded', initializePage);
+  </script>
+</body>
+</html>
