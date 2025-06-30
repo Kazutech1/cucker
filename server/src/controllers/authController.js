@@ -20,6 +20,7 @@ const validatePhoneNumber = (phoneNumber) => {
 };
 
 // Register Controller
+// Register Controller
 export const register = async (req, res) => {
   const { email, fullName, username, phoneNumber, password, referredBy } = req.body;
 
@@ -60,6 +61,19 @@ export const register = async (req, res) => {
 
     // Create user and profile in transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Ensure default VIP level exists
+      await tx.vipLevel.upsert({
+        where: { level: 0 },
+        update: {},
+        create: {
+          level: 0,
+          name: "Default",
+          profitPerOrder: 0,
+          appsPerSet: 0,
+          minBalance: 0
+        }
+      });
+
       const newUser = await tx.user.create({
         data: {
           email,
@@ -100,8 +114,8 @@ export const register = async (req, res) => {
   }
 };
 
+
 // Login Controller (can login with email, username, or phone number)
-// In your login controller
 export const login = async (req, res) => {
   const { login, password } = req.body;
 
