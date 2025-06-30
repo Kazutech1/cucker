@@ -72,14 +72,14 @@ model Withdrawal {
 model Profile {
   id            String   @id @default(uuid())
   userId        String   @unique
-  vipLevel      Int      @default(0)
+  vipLevel      Int?      @default(0)
   totalInvested Float    @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vipLevelData VipLevel @relation(fields: [vipLevel], references: [level])
+  vipLevelData VipLevel? @relation(fields: [vipLevel], references: [level])
 }
 
 
