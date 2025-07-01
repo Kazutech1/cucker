@@ -1,8 +1,7 @@
-// utils/VipCalculator.js
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
-export async function calculateVipLevel(balance) {
+export async function calculateEligibleVipLevel(balance) {
   const vipLevels = await prisma.vipLevel.findMany({
     orderBy: { level: 'desc' }
   });
@@ -12,31 +11,47 @@ export async function calculateVipLevel(balance) {
       return level.level;
     }
   }
-
   return 0;
 }
 
-export async function updateUserVipLevel(userId) {
+export async function notifyUserIfVipUpgradeAvailable(userId) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true }
     });
 
-    if (!user) {
-      throw new Error("User not found");
-    }
+    if (!user) return { available: false };
 
-    const newVipLevel = await calculateVipLevel(user.balance);
+    const currentLevel = user.profile?.vipLevel || 0;
+    const eligibleLevel = await calculateEligibleVipLevel(user.balance);
 
-    if (user.profile && user.profile.vipLevel !== newVipLevel) {
-      await prisma.profile.update({
-        where: { userId },
-        data: { vipLevel: newVipLevel }
+    if (eligibleLevel > currentLevel) {
+      // Create upgrade notification
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: "VIP Upgrade Available",
+          message: `You qualify for VIP Level ${eligibleLevel}! ` +
+                   "Contact support to complete your upgrade.",
+          type: 'VIP_UPGRADE_OFFER',
+          metadata: {
+            eligibleLevel,
+            currentLevel
+          }
+        }
       });
+
+      return {
+        available: true,
+        currentLevel,
+        eligibleLevel
+      };
     }
+
+    return { available: false, currentLevel };
   } catch (error) {
-    console.error("Error updating VIP level:", error);
+    console.error("VIP notification error:", error);
     throw error;
   }
 }
