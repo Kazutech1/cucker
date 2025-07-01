@@ -20,7 +20,9 @@ const VipManagement = () => {
     currentLevel: 0,
     newLevel: 0
   });
+   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+   
   const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
@@ -155,9 +157,15 @@ const VipManagement = () => {
     }).format(amount || 0);
   };
 
+  
+   const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="vip" />
+      <Sidebar active="vip"  isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar}  />
       
       <main className="flex-1 p-4 md:p-6 md:ml-64">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">VIP Management</h1>

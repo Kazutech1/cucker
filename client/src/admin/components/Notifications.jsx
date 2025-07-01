@@ -34,6 +34,7 @@ const ANotifications = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationToDelete, setNotificationToDelete] = useState(null);
+   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -135,6 +136,11 @@ const ANotifications = () => {
     setNotificationToDelete(null);
   };
 
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+
   const deleteNotification = async () => {
     if (!notificationToDelete) return;
 
@@ -200,7 +206,7 @@ const ANotifications = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="notifications" />
+      <Sidebar active="notifications" isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar}/>
       
       <main className="flex-1 p-4 md:p-1 md:ml-64">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Notifications Management</h1>

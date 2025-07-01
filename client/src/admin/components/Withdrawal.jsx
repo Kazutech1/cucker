@@ -11,6 +11,7 @@ const AWithdrawals = () => {
     userId: ''
   });
   const [modalOpen, setModalOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [currentWithdrawal, setCurrentWithdrawal] = useState({
     id: '',
     status: 'completed',
@@ -142,9 +143,15 @@ const AWithdrawals = () => {
     }
   };
 
+
+   const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="withdrawals" />
+      <Sidebar active="withdrawals"  isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar} />
       
       <main className="flex-1 p-2 md:p-2 md:ml-64">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Withdrawal Management</h1>

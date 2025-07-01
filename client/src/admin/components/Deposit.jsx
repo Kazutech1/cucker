@@ -16,6 +16,7 @@ const ADeposits = () => {
     status: 'verified',
     proofImage: ''
   });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchDeposits();
@@ -135,9 +136,15 @@ const ADeposits = () => {
     }
   };
 
+  
+   const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="deposits" />
+      <Sidebar active="deposits"   isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar}  />
       
       <main className="flex-1 p-4 md:p-4 md:ml-64">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Deposit Management</h1>
