@@ -961,7 +961,7 @@
                 claimBtn.classList.remove('active');
                 claimBtn.textContent = 'Processing...';
                 
-                const response = await fetch(`${API_BASE_URL}/earnings/claim`, {
+                const response = await fetch(`${API_BASE_URL}/earnings/daily`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${getAuthToken()}`,

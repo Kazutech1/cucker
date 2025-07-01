@@ -141,6 +141,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             border: 1px solid rgba(64, 224, 208, 0.15);
             backdrop-filter: blur(10px);
+            position: relative;
         }
 
         .auth-header {
@@ -260,6 +261,13 @@
             box-shadow: 0 8px 20px rgba(64, 224, 208, 0.25);
         }
 
+        .submit-btn:disabled {
+            background: linear-gradient(135deg, #2a9085, #008b8b);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .forgot-password {
             text-align: center;
             margin-top: 16px;
@@ -283,6 +291,36 @@
             top: 0;
             left: 0;
             width: 100%;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            border-radius: 16px;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid rgba(64, 224, 208, 0.2);
+            border-top: 4px solid #40e0d0;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 1200px) {
@@ -405,7 +443,7 @@
         <div class="left-section">
             <div class="logo">
                 <div class="logo-icon">
-                    <svg class="tab-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="feature-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
                     </svg>
                 </div>
@@ -469,7 +507,7 @@
                             <label for="loginPassword">Password</label>
                             <input type="password" id="loginPassword" placeholder="Enter your password" required>
                         </div>
-                        <button type="submit" class="submit-btn">Sign In</button>
+                        <button type="submit" class="submit-btn" id="loginSubmitBtn">Sign In</button>
                     </form>
                     <div class="forgot-password">
                         <a href="#" onclick="showForgotPassword()">Forgot your password?</a>
@@ -506,8 +544,12 @@
                             <label for="referredBy">Referral Code</label>
                             <input type="text" id="referredBy" placeholder="Enter referral code (optional)">
                         </div>
-                        <button type="submit" class="submit-btn">Create Account</button>
+                        <button type="submit" class="submit-btn" id="signupSubmitBtn">Create Account</button>
                     </form>
+                </div>
+
+                <div id="loading-overlay" class="loading-overlay">
+                    <div class="spinner"></div>
                 </div>
             </div>
         </div>
@@ -515,6 +557,16 @@
 
     <script>
         let currentTab = 'login';
+        const baseUrl = 'https://siemensx.onrender.com';
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+        const signupSubmitBtn = document.getElementById('signupSubmitBtn');
+
+        function toggleLoading(show) {
+            loadingOverlay.style.display = show ? 'flex' : 'none';
+            loginSubmitBtn.disabled = show;
+            signupSubmitBtn.disabled = show;
+        }
 
         function switchTab(tab) {
             if (currentTab === tab) return;
@@ -550,11 +602,13 @@
 
         async function handleLogin(event) {
             event.preventDefault();
+            toggleLoading(true);
+
             const login = document.getElementById('loginInput').value;
             const password = document.getElementById('loginPassword').value;
 
             try {
-                const response = await fetch('http://localhost:5000/api/auth/login', {
+                const response = await fetch(`${baseUrl}/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -574,11 +628,15 @@
             } catch (error) {
                 console.error('Login error:', error);
                 alert(`Login failed: ${error.message}`);
+            } finally {
+                toggleLoading(false);
             }
         }
 
         async function handleSignup(event) {
             event.preventDefault();
+            toggleLoading(true);
+
             const fullName = document.getElementById('signupFullName').value;
             const username = document.getElementById('signupUsername').value;
             const email = document.getElementById('signupEmail').value;
@@ -589,11 +647,12 @@
 
             if (password !== confirmPassword) {
                 alert('Passwords do not match!');
+                toggleLoading(false);
                 return;
             }
 
             try {
-                const response = await fetch('http://localhost:5000/api/auth/register', {
+                const response = await fetch(`${baseUrl}/api/auth/register`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -619,6 +678,8 @@
             } catch (error) {
                 console.error('Signup error:', error);
                 alert(`Registration failed: ${error.message}`);
+            } finally {
+                toggleLoading(false);
             }
         }
 
