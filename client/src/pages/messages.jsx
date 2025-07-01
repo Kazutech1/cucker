@@ -51,11 +51,11 @@ const NotificationsPage = () => {
       
       const token = localStorage.getItem('token');
       if (!token) {
-        navigate('/login');
+        navigate('/');
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -65,13 +65,14 @@ const NotificationsPage = () => {
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('token');
-          navigate('/login');
+          navigate('/');
           return;
         }
         throw new Error(`HTTP ${response.status}: Failed to fetch notifications`);
       }
 
-      const data = await response.json();
+      const data = await response.json()
+      console.log(data)
       
       if (!data.success) {
         throw new Error(data.message || 'Invalid response from server');

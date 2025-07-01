@@ -44,11 +44,11 @@ const TransactionHistory = () => {
 
       const token = localStorage.getItem('token');
       if (!token) {
-        navigate('/login');
+        navigate('/');
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/transactions?page=${page}`, {
+      const response = await fetch(`${API_BASE_URL}/api/transactions?page=${page}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -57,7 +57,7 @@ const TransactionHistory = () => {
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('token');
-          navigate('/login');
+          navigate('/');
           return;
         }
         throw new Error('Failed to fetch transaction history');
