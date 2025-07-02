@@ -164,8 +164,7 @@ const ProfilePage = () => {
           />
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-teal-400">{userData.username}</h2>
-            <p className="text-gray-300">{userData.email}</p>
-            <p className="text-gray-300">{userData.phoneNumber}</p>
+           
             <div className="flex flex-wrap gap-2 mt-2">
               <span className="bg-teal-400/10 text-teal-400 px-3 py-1 rounded-full text-sm">
                 Invite Code: {userData.referralCode}
