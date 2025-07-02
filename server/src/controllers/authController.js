@@ -1,11 +1,63 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-// import { calculateVipLevel, updateUserVipLevel } from "../utils/VipCalculator.js";
 import { PrismaClient } from "@prisma/client";
 import { checkVipUpgradeEligibility } from "../utils/VipCalculator.js";
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { v4 as uuidv4 } from 'uuid';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer for profile pictures
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit for profile pictures
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+}).single('profilePicture');
+
+// Helper function to upload to Cloudinary
+const uploadToCloudinary = (buffer, originalname) => {
+  return new Promise((resolve, reject) => {
+    const uploadOptions = {
+      folder: 'profile-pictures',
+      public_id: `profile-${uuidv4()}`,
+      resource_type: 'image',
+      format: 'jpg',
+      quality: 'auto',
+      fetch_format: 'auto',
+      transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face' }, // Square crop focusing on face
+        { quality: 'auto' }
+      ]
+    };
+
+    cloudinary.uploader.upload_stream(
+      uploadOptions,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      }
+    ).end(buffer);
+  });
+};
 
 // Generate random referral code
 const generateReferralCode = (length = 8) => {
@@ -20,7 +72,6 @@ const validatePhoneNumber = (phoneNumber) => {
   return phoneRegex.test(phoneNumber) && phoneNumber.replace(/\D/g, '').length >= 10;
 };
 
-// Register Controller
 // Register Controller
 export const register = async (req, res) => {
   const { email, fullName, username, phoneNumber, password, referredBy } = req.body;
@@ -105,7 +156,8 @@ export const register = async (req, res) => {
         email: result.user.email,
         phoneNumber: result.user.phoneNumber,
         referralCode: result.user.referralCode,
-        vipLevel: result.profile.vipLevel
+        vipLevel: result.profile.vipLevel,
+        profilePicture: result.user.profilePicture
       }
     });
 
@@ -114,7 +166,6 @@ export const register = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 // Login Controller (can login with email, username, or phone number)
 export const login = async (req, res) => {
@@ -167,7 +218,8 @@ export const login = async (req, res) => {
         referralCode: user.referralCode,
         referredBy: user.referredBy,
         vipLevel: user.profile?.vipLevel || 0,
-        role: user.role || 'user' // Send role to frontend
+        role: user.role || 'user',
+        profilePicture: user.profilePicture // Include profile picture
       }
     });
 
@@ -176,8 +228,6 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
 
 export const getProfile = async (req, res) => {
   try {
@@ -202,14 +252,15 @@ export const getProfile = async (req, res) => {
     res.json({
       message: "Profile retrieved successfully",
       user: {
-      username: userWithProfile.username,
+        username: userWithProfile.username,
         email: userWithProfile.email,
         phoneNumber: userWithProfile.phoneNumber,
         balance: userWithProfile.balance,
         referralCode: userWithProfile.referralCode,
         referredBy: userWithProfile.referredBy,
         vipLevel: userWithProfile.profile.vipLevelData,
-        totalInvested: userWithProfile.profile.totalInvested
+        totalInvested: userWithProfile.profile.totalInvested,
+        profilePicture: userWithProfile.profilePicture // Include profile picture
       },
       toast: vipCheck.available ? {
         message: vipCheck.message,
@@ -222,58 +273,98 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// Update Profile Controller
-export const updateProfile = async (req, res) => {
-  const { fullName, phoneNumber } = req.body;
+// Remove the separate uploadProfilePicture function since it's now integrated into updateProfile
 
-  try {
-    const updateData = {};
-    
-    if (fullName) updateData.fullName = fullName;
-    
-    if (phoneNumber) {
-      // Validate phone number if provided
-      if (!validatePhoneNumber(phoneNumber)) {
-        return res.status(400).json({ message: "Invalid phone number format" });
-      }
-      
-      // Check if phone number is already taken by another user
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          phoneNumber: phoneNumber,
-          id: { not: req.user.id }
-        }
+// Update Profile Controller with Profile Picture Upload
+export const updateProfile = async (req, res) => {
+  // Use multer to handle both form data and file upload
+  upload(req, res, async (err) => {
+    if (err && !(err instanceof multer.MulterError && err.code === 'LIMIT_UNEXPECTED_FILE')) {
+      return res.status(400).json({ 
+        message: err instanceof multer.MulterError 
+          ? err.message 
+          : 'File upload failed'
       });
-      
-      if (existingUser) {
-        return res.status(400).json({ message: "Phone number already exists" });
-      }
-      
-      updateData.phoneNumber = phoneNumber;
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
-      data: updateData
-    });
-
-    res.json({
-      message: "Profile updated successfully",
-      user: {
-        id: updatedUser.id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-        phoneNumber: updatedUser.phoneNumber
+    try {
+      const { fullName, phoneNumber } = req.body;
+      const updateData = {};
+      
+      if (fullName) updateData.fullName = fullName;
+      
+      if (phoneNumber) {
+        // Validate phone number if provided
+        if (!validatePhoneNumber(phoneNumber)) {
+          return res.status(400).json({ message: "Invalid phone number format" });
+        }
+        
+        // Check if phone number is already taken by another user
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            phoneNumber: phoneNumber,
+            id: { not: req.user.id }
+          }
+        });
+        
+        if (existingUser) {
+          return res.status(400).json({ message: "Phone number already exists" });
+        }
+        
+        updateData.phoneNumber = phoneNumber;
       }
-    });
 
-  } catch (error) {
-    console.error("Update profile error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
+      // Handle profile picture update if file is provided
+      if (req.file) {
+        // Get current user to check if they have an existing profile picture
+        const currentUser = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { profilePicture: true }
+        });
+
+        // Upload new image to Cloudinary
+        const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+        updateData.profilePicture = uploadResult.secure_url;
+
+        // Delete old profile picture from Cloudinary if it exists
+        if (currentUser.profilePicture) {
+          try {
+            // Extract public_id from the old URL
+            const urlParts = currentUser.profilePicture.split('/');
+            const publicIdWithExtension = urlParts[urlParts.length - 1];
+            const publicId = `profile-pictures/${publicIdWithExtension.split('.')[0]}`;
+            
+            await cloudinary.uploader.destroy(publicId);
+          } catch (deleteError) {
+            console.log('Could not delete old profile picture:', deleteError.message);
+            // Continue even if deletion fails
+          }
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user.id },
+        data: updateData
+      });
+
+      res.json({
+        message: "Profile updated successfully",
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          fullName: updatedUser.fullName,
+          phoneNumber: updatedUser.phoneNumber,
+          profilePicture: updatedUser.profilePicture
+        }
+      });
+
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 };
-
 
 // User: Get all broadcast notifications
 export const getNotifications = async (req, res) => {

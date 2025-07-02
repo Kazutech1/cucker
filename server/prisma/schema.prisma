@@ -21,6 +21,7 @@ model User {
   balance      Float    @default(0)
   profitBalance Float   @default(0)
   withdrawalAddress String?   // New field for crypto address
+  profilePicture String?      // New field for profile picture URL
   lastProfitCalc DateTime?
   createdAt    DateTime @default(now())
 
