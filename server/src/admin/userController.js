@@ -39,6 +39,7 @@ export const getUsers = async (req, res) => {
         balance: true,
         profitBalance: true,
         withdrawalAddress: true,
+        profilePicture: true,
         role: true,
         createdAt: true,
         profile: {
