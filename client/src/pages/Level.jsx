@@ -25,7 +25,7 @@ const VIPLevelsPage = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      navigate('/');
       return;
     }
 
@@ -98,32 +98,9 @@ const VIPLevelsPage = () => {
     }
   };
 
-  const handleUpgrade = async (targetLevel) => {
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vip/upgrade`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ level: targetLevel })
-      });
-      
-      if (!response.ok) throw new Error('Upgrade failed');
-      
-      const data = await response.json();
-      setUserLevel(targetLevel);
-      alert(`Successfully upgraded to ${vipLevels.find(l => l.level === targetLevel).name}`);
-    } catch (error) {
-      console.error('Upgrade error:', error);
-      alert(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleUpgrade = () => {
+  navigate('/service');
+};
 
   // Get color gradient based on level
   const getLevelColor = (level) => {
