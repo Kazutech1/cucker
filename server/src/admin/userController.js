@@ -226,26 +226,60 @@ export const getVipLevels = async (req, res) => {
 
 
 // Update user VIP level
+// Update user VIP level
 export const updateVipLevel = async (req, res) => {
   try {
     const { userId, level } = req.body;
     
-    // First check if VIP level exists
+    // Validate input
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+    
+    if (level === undefined || level === null) {
+      return res.status(400).json({ message: "VIP level is required" });
+    }
+
+    // Convert level to number
+    const vipLevel = parseInt(level);
+    if (isNaN(vipLevel)) {
+      return res.status(400).json({ message: "VIP level must be a number" });
+    }
+
+    // First check if user exists
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    });
+    
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if VIP level exists (using the converted number)
     const vipExists = await prisma.vipLevel.findUnique({
-      where: { level }
+      where: { level: vipLevel }
     });
     
     if (!vipExists) {
-      return res.status(400).json({ message: "VIP level doesn't exist" });
+      return res.status(400).json({ message: `VIP level ${vipLevel} doesn't exist` });
     }
 
-    const user = await prisma.user.update({
+    // Update user VIP level
+    // First ensure the user has a profile
+    await prisma.profile.upsert({
+      where: { userId },
+      update: { vipLevel },
+      create: {
+        userId,
+        vipLevel,
+        totalInvested: 0
+      }
+    });
+
+    // Get updated user data to return
+    const updatedUser = await prisma.user.findUnique({
       where: { id: userId },
-      data: {
-        profile: {
-          update: { vipLevel: level }
-        }
-      },
       include: { 
         profile: {
           include: { vipLevelData: true }
@@ -254,15 +288,19 @@ export const updateVipLevel = async (req, res) => {
     });
 
     res.json({
-      message: "VIP level updated",
-      user
+      success: true,
+      message: "VIP level updated successfully",
+      user: updatedUser
     });
   } catch (error) {
     console.error("Update VIP error:", error);
-    res.status(500).json({ message: "Failed to update VIP level" });
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to update VIP level",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
-
 
 
 // Get admin wallets
@@ -540,111 +578,77 @@ export const deleteNotification = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const {
-      email,
-      fullName,
-      username,
-      phoneNumber,
-      balance,
-      profitBalance,
-      withdrawalAddress,
-      role,
-      vipLevel,
-      totalInvested,
-      isActive,
-      // Any other user fields you want to be editable
-    } = req.body;
+    const { vipLevel, ...otherFields } = req.body;
 
-    // First verify the user exists
+    // Validate user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true }
     });
 
     if (!existingUser) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Validate email if being changed
-    if (email && email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email },
-        select: { id: true }
-      });
-      
-      if (emailExists) {
-        return res.status(400).json({ message: "Email already in use" });
+    // Handle VIP level validation and conversion
+    let vipLevelNumber;
+    if (vipLevel !== undefined) {
+      vipLevelNumber = parseInt(vipLevel);
+      if (isNaN(vipLevelNumber)) {
+        return res.status(400).json({ success: false, message: "VIP level must be a number" });
       }
-    }
 
-    // Validate username if being changed
-    if (username && username !== existingUser.username) {
-      const usernameExists = await prisma.user.findUnique({
-        where: { username },
-        select: { id: true }
-      });
-      
-      if (usernameExists) {
-        return res.status(400).json({ message: "Username already in use" });
-      }
-    }
-
-    // Validate VIP level if being changed
-    if (vipLevel !== undefined && vipLevel !== null) {
       const vipExists = await prisma.vipLevel.findUnique({
-        where: { level: vipLevel }
+        where: { level: vipLevelNumber }
       });
       
       if (!vipExists) {
-        return res.status(400).json({ message: "Invalid VIP level" });
+        return res.status(400).json({ success: false, message: "Invalid VIP level" });
       }
     }
 
-    // Prepare update data
+    // Prepare profile update
+    const profileUpdate = {};
+    if (vipLevel !== undefined) profileUpdate.vipLevel = vipLevelNumber;
+    if (otherFields.totalInvested !== undefined) {
+      profileUpdate.totalInvested = parseFloat(otherFields.totalInvested);
+    }
+
+    // Build update data
     const updateData = {
-      email: email !== undefined ? email : existingUser.email,
-      fullName: fullName !== undefined ? fullName : existingUser.fullName,
-      username: username !== undefined ? username : existingUser.username,
-      phoneNumber: phoneNumber !== undefined ? phoneNumber : existingUser.phoneNumber,
-      balance: balance !== undefined ? parseFloat(balance) : existingUser.balance,
-      profitBalance: profitBalance !== undefined ? parseFloat(profitBalance) : existingUser.profitBalance,
-      withdrawalAddress: withdrawalAddress !== undefined ? withdrawalAddress : existingUser.withdrawalAddress,
-      role: role !== undefined ? role : existingUser.role,
-      isActive: isActive !== undefined ? isActive : existingUser.isActive,
-      profile: {
-        update: {
-          vipLevel: vipLevel !== undefined ? vipLevel : existingUser.profile?.vipLevel,
-          totalInvested: totalInvested !== undefined ? parseFloat(totalInvested) : existingUser.profile?.totalInvested
+      ...otherFields,
+      ...(Object.keys(profileUpdate).length > 0 && {
+        profile: {
+          update: profileUpdate
         }
-      }
+      })
     };
 
-    // Execute the update
+    // Clean undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) delete updateData[key];
+    });
+
+    // Execute update
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
       include: {
         profile: {
-          include: {
-            vipLevelData: true
-          }
-        },
-        _count: {
-          select: {
-            deposit: true,
-            withdrawal: true
-          }
+          include: { vipLevelData: true }
         }
       }
     });
 
     res.json({
+      success: true,
       message: "User updated successfully",
       user: updatedUser
     });
   } catch (error) {
     console.error("Update user error:", error);
     res.status(500).json({ 
+      success: false,
       message: "Failed to update user",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { calculateVipLevel, updateUserVipLevel } from "../utils/VipCalculator.js";
+// import { calculateVipLevel, updateUserVipLevel } from "../utils/VipCalculator.js";
 import { PrismaClient } from "@prisma/client";
+import { checkVipUpgradeEligibility } from "../utils/VipCalculator.js";
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
@@ -180,9 +181,6 @@ export const login = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    // First update the VIP level based on current balance
-    await updateUserVipLevel(req.user.id);
-
     const userWithProfile = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: { 
@@ -198,10 +196,13 @@ export const getProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Check VIP eligibility (returns message instead of creating notification)
+    const vipCheck = await checkVipUpgradeEligibility(req.user.id);
+
     res.json({
       message: "Profile retrieved successfully",
       user: {
-        username: userWithProfile.username,
+      username: userWithProfile.username,
         email: userWithProfile.email,
         phoneNumber: userWithProfile.phoneNumber,
         balance: userWithProfile.balance,
@@ -209,7 +210,11 @@ export const getProfile = async (req, res) => {
         referredBy: userWithProfile.referredBy,
         vipLevel: userWithProfile.profile.vipLevelData,
         totalInvested: userWithProfile.profile.totalInvested
-      }
+      },
+      toast: vipCheck.available ? {
+        message: vipCheck.message,
+        ...vipCheck.toastConfig
+      } : null
     });
   } catch (error) {
     console.error("Get profile error:", error);
