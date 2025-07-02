@@ -20,6 +20,9 @@ import {
   sendNotification,
   deleteNotification,
   getNotifications,
+  createVipLevel,
+  updateVipLevelDetails,
+  deleteVipLevel,
 } from './userController.js';
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
@@ -51,6 +54,10 @@ router.get('/withdrawals/:withdrawalId', getWithdrawalById);
 // VIP Management
 router.get('/vip-levels', getVipLevels);
 router.put('/users/vip', updateVipLevel);
+router.post('/vip-levels', createVipLevel);
+router.put('/vip-levels/:level', updateVipLevelDetails);
+router.delete('/vip-levels/:level', deleteVipLevel);
+
 
 // Wallet Management
 router.get('/wallets', getAdminWallets);

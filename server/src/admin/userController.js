@@ -654,3 +654,158 @@ export const updateUser = async (req, res) => {
     });
   }
 };
+
+
+
+
+// Create new VIP level
+export const createVipLevel = async (req, res) => {
+  try {
+    const { level, name, profitPerOrder, appsPerSet, minBalance } = req.body;
+
+    // Validate required fields
+    if (level === undefined || !name || profitPerOrder === undefined || 
+        appsPerSet === undefined || minBalance === undefined) {
+      return res.status(400).json({ 
+        success: false,
+        message: "All fields (level, name, profitPerOrder, appsPerSet, minBalance) are required"
+      });
+    }
+
+    // Check if level already exists
+    const existingLevel = await prisma.vipLevel.findUnique({
+      where: { level: parseInt(level) }
+    });
+
+    if (existingLevel) {
+      return res.status(400).json({
+        success: false,
+        message: `VIP level ${level} already exists`
+      });
+    }
+
+    // Create new VIP level
+    const newLevel = await prisma.vipLevel.create({
+      data: {
+        level: parseInt(level),
+        name,
+        profitPerOrder: parseFloat(profitPerOrder),
+        appsPerSet: parseInt(appsPerSet),
+        minBalance: parseFloat(minBalance)
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "VIP level created successfully",
+      level: newLevel
+    });
+  } catch (error) {
+    console.error("Create VIP level error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create VIP level",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Update VIP level
+export const updateVipLevelDetails = async (req, res) => {
+  try {
+    const { level } = req.params;
+    const { name, profitPerOrder, appsPerSet, minBalance } = req.body;
+
+    // Convert level to number
+    const levelNum = parseInt(level);
+    if (isNaN(levelNum)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid VIP level"
+      });
+    }
+
+    // Check if level exists
+    const existingLevel = await prisma.vipLevel.findUnique({
+      where: { level: levelNum }
+    });
+
+    if (!existingLevel) {
+      return res.status(404).json({
+        success: false,
+        message: `VIP level ${levelNum} not found`
+      });
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (profitPerOrder !== undefined) updateData.profitPerOrder = parseFloat(profitPerOrder);
+    if (appsPerSet !== undefined) updateData.appsPerSet = parseInt(appsPerSet);
+    if (minBalance !== undefined) updateData.minBalance = parseFloat(minBalance);
+
+    // Update the VIP level
+    const updatedLevel = await prisma.vipLevel.update({
+      where: { level: levelNum },
+      data: updateData
+    });
+
+    res.json({
+      success: true,
+      message: "VIP level updated successfully",
+      level: updatedLevel
+    });
+  } catch (error) {
+    console.error("Update VIP level error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update VIP level",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Delete VIP level
+export const deleteVipLevel = async (req, res) => {
+  try {
+    const { level } = req.params;
+
+    // Convert level to number
+    const levelNum = parseInt(level);
+    if (isNaN(levelNum)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid VIP level"
+      });
+    }
+
+    // Check if any users have this VIP level
+    const usersWithLevel = await prisma.profile.count({
+      where: { vipLevel: levelNum }
+    });
+
+    if (usersWithLevel > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete VIP level ${levelNum} - ${usersWithLevel} users have this level`
+      });
+    }
+
+    // Delete the VIP level
+    await prisma.vipLevel.delete({
+      where: { level: levelNum }
+    });
+
+    res.json({
+      success: true,
+      message: `VIP level ${levelNum} deleted successfully`
+    });
+  } catch (error) {
+    console.error("Delete VIP level error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete VIP level",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
