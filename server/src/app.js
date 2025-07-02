@@ -34,9 +34,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files - FIXED PATH
-const uploadsDir = path.join(__dirname, "..", "uploads"); // Goes up one level from src
+// FIXED PATH TO MATCH WHERE FILES ARE SAVED
+const uploadsDir = path.join(__dirname, "uploads");
 app.use("/uploads", express.static(uploadsDir));
-
 // Ensure uploads directory exists
 import fs from "fs";
 if (!fs.existsSync(uploadsDir)) {
