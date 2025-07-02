@@ -99,7 +99,7 @@ const VIPLevelsPage = () => {
   };
 
 const handleUpgrade = () => {
-  navigate('/service');
+  navigate('/support');
 };
 
   // Get color gradient based on level

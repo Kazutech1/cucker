@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiArrowLeft, 
@@ -12,13 +12,14 @@ import {
   FiMail,
   FiHelpCircle,
   FiBell,
-  FiLogOut
+  FiLogOut,
+  FiCamera,
+  FiTrash2
 } from 'react-icons/fi';
 import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/Spinner';
-
 
 const UpdateProfilePage = () => {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ const UpdateProfilePage = () => {
     email: 'Loading...',
     fullName: '',
     phoneNumber: '',
+    profilePicture: '',
     referralCode: 'Loading...',
     vipLevel: { name: 'Loading...', profitPerOrder: 0 },
     balance: 0,
@@ -38,6 +40,9 @@ const UpdateProfilePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [profilePictureFile, setProfilePictureFile] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState('');
+  const fileInputRef = useRef(null);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -91,16 +96,56 @@ const UpdateProfilePage = () => {
         email: profileData.user.email || 'Loading...',
         fullName: profileData.user.fullName || '',
         phoneNumber: profileData.user.phoneNumber || '',
+        profilePicture: profileData.user.profilePicture || '',
         referralCode: profileData.user.referralCode || 'Loading...',
         vipLevel: profileData.user.vipLevel || { name: 'Loading...', profitPerOrder: 0 },
         balance: profileData.user.balance || 0,
         walletAddress: withdrawalData.withdrawalAddress || ''
       });
+
+      if (profileData.user.profilePicture) {
+        setProfilePicturePreview(profileData.user.profilePicture);
+      }
     } catch (error) {
       console.error('Fetch error:', error);
       setError('Failed to load profile data. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle profile picture selection
+  const handlePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type and size
+      if (!file.type.match('image.*')) {
+        setError('Please select an image file (JPEG, PNG)');
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+
+      setProfilePictureFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setProfilePicturePreview(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove selected profile picture
+  const removePicture = () => {
+    setProfilePictureFile(null);
+    setProfilePicturePreview('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -112,19 +157,25 @@ const UpdateProfilePage = () => {
     setSuccess(null);
 
     try {
-      // Update profile (fullName and phoneNumber)
-      const profileUpdateData = {};
-      if (userData.fullName) profileUpdateData.fullName = userData.fullName;
-      if (userData.phoneNumber) profileUpdateData.phoneNumber = userData.phoneNumber;
+      const formData = new FormData();
+      
+      // Add profile data if changed
+      if (userData.fullName) formData.append('fullName', userData.fullName);
+      if (userData.phoneNumber) formData.append('phoneNumber', userData.phoneNumber);
+      
+      // Add profile picture if selected
+      if (profilePictureFile) {
+        formData.append('profilePicture', profilePictureFile);
+      }
 
-      if (Object.keys(profileUpdateData).length > 0) {
+      // First update profile (including picture if needed)
+      if (formData.has('fullName') || formData.has('phoneNumber') || formData.has('profilePicture')) {
         const profileResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/profile`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
           },
-          body: JSON.stringify(profileUpdateData)
+          body: formData
         });
 
         const profileData = await profileResponse.json();
@@ -134,7 +185,7 @@ const UpdateProfilePage = () => {
         }
       }
 
-      // Update wallet address
+      // Then update wallet address if changed
       if (userData.walletAddress) {
         const addressResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/withdrawal/address`, {
           method: 'POST',
@@ -153,8 +204,10 @@ const UpdateProfilePage = () => {
       }
 
       // Only show success if at least one update was made
-      if (Object.keys(profileUpdateData).length > 0 || userData.walletAddress) {
+      if (formData.has('fullName') || formData.has('phoneNumber') || formData.has('profilePicture') || userData.walletAddress) {
         setSuccess('Profile updated successfully!');
+        // Refresh profile data
+        fetchProfileAndAddress();
       } else {
         throw new Error('Please fill in at least one field to update.');
       }
@@ -177,9 +230,7 @@ const UpdateProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16">
-                    {isLoading && <LoadingSpinner />}
-
-   
+      {isLoading && <LoadingSpinner />}
 
       {/* Top Bar */}
       <div className="fixed top-0 left-0 right-0 z-15 p-5 flex justify-between items-center bg-black/30 backdrop-blur-md border-b border-teal-400/15">
@@ -192,8 +243,6 @@ const UpdateProfilePage = () => {
         <div className="w-14"></div> {/* Spacer for centering */}
       </div>
 
-      
-
       {/* Main Content */}
       <div className="container mx-auto px-4 pt-24 pb-32 max-w-md">
         <h1 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-teal-400 to-teal-500 bg-clip-text text-transparent">
@@ -202,6 +251,47 @@ const UpdateProfilePage = () => {
 
         {/* Profile Card */}
         <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 mb-6">
+          {/* Profile Picture Section */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="relative">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-teal-400/30 bg-gray-800 flex items-center justify-center">
+                {profilePicturePreview ? (
+                  <img 
+                    src={profilePicturePreview} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <FiUser className="w-16 h-16 text-gray-500" />
+                )}
+              </div>
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="absolute bottom-0 right-0 bg-teal-500 rounded-full p-2 hover:bg-teal-400 transition-colors"
+              >
+                <FiCamera className="w-5 h-5 text-white" />
+              </button>
+              {profilePicturePreview && (
+                <button
+                  onClick={removePicture}
+                  className="absolute top-0 right-0 bg-red-500 rounded-full p-2 hover:bg-red-400 transition-colors"
+                >
+                  <FiTrash2 className="w-5 h-5 text-white" />
+                </button>
+              )}
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePictureChange}
+              accept="image/*"
+              className="hidden"
+            />
+            <p className="text-gray-400 text-sm mt-2">
+              {profilePictureFile ? 'New image selected' : 'Click camera to upload'}
+            </p>
+          </div>
+
           {/* Read-Only Profile Info */}
           <div className="space-y-4 mb-6">
             <div>
@@ -307,8 +397,6 @@ const UpdateProfilePage = () => {
           </form>
         </div>
       </div>
-
-      
     </div>
   );
 };

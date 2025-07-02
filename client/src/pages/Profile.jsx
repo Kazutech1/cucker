@@ -158,7 +158,7 @@ const ProfilePage = () => {
         {/* Profile Header */}
         <div className="profile-header flex items-center gap-5 mb-8">
           <img 
-            src="https://randomuser.me/api/portraits/men/32.jpg" 
+            src={userData.profilePicture}
             alt="Profile" 
             className="w-20 h-20 rounded-full border-2 border-teal-400 object-cover"
           />
@@ -190,7 +190,7 @@ const ProfilePage = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-400">
-                {(userData.vipLevel.profitPerOrder * 100).toFixed(2)}%
+                {userData.vipLevel.profitPerOrder}%
               </div>
               <div className="text-gray-400 text-xs uppercase">Profit Per Order</div>
             </div>

@@ -359,7 +359,7 @@ const Dashboard = () => {
           <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 flex flex-col">
             <h3 className="text-lg font-semibold mb-4">Daily Profit</h3>
             
-            <div className="flex-grow flex flex-col justify-center py-4 text-center">
+            {/* <div className="flex-grow flex flex-col justify-center py-4 text-center">
               {earningsData?.canClaim ? (
                 <>
                   <p className="text-gray-400 mb-2">Available to claim:</p>
@@ -373,7 +373,7 @@ const Dashboard = () => {
                   <p className="text-teal-400 text-2xl font-bold">{timeLeft}</p>
                 </>
               ) : null}
-            </div>
+            </div> */}
             
             <button
               onClick={claimDailyProfit}
