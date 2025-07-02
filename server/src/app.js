@@ -35,7 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static files - FIXED PATH
 // FIXED PATH TO MATCH WHERE FILES ARE SAVED
-const uploadsDir = path.join(__dirname, "uploads");
+const uploadsDir = path.join(__dirname, "..", "uploads");
 app.use("/uploads", express.static(uploadsDir));
 // Ensure uploads directory exists
 import fs from "fs";

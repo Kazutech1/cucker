@@ -1,29 +1,57 @@
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
 
 const prisma = new PrismaClient();
 
-// Configure file storage
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads/deposits/'));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `deposit-${uuidv4()}${ext}`);
-  }
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+// Configure multer for memory storage (since we're uploading to Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
 }).single('proofImage');
+
+// Helper function to upload to Cloudinary
+const uploadToCloudinary = (buffer, originalname) => {
+  return new Promise((resolve, reject) => {
+    const uploadOptions = {
+      folder: 'deposits', // Organize uploads in a folder
+      public_id: `deposit-${uuidv4()}`, // Custom public ID
+      resource_type: 'image',
+      format: 'jpg', // Convert to jpg for consistency
+      quality: 'auto', // Automatic quality optimization
+      fetch_format: 'auto' // Automatic format optimization
+    };
+
+    cloudinary.uploader.upload_stream(
+      uploadOptions,
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      }
+    ).end(buffer);
+  });
+};
 
 // Wrapper for async middleware
 const asyncHandler = fn => (req, res, next) => {
@@ -80,13 +108,33 @@ export const submitDepositProof = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Invalid currency selected" });
     }
 
+    let proofImageUrl = null;
+    
+    // Upload image to Cloudinary if file exists
+    if (req.file) {
+      try {
+        const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+        proofImageUrl = uploadResult.secure_url; // Use secure HTTPS URL
+        
+        console.log('Image uploaded to Cloudinary:', {
+          url: uploadResult.secure_url,
+          publicId: uploadResult.public_id
+        });
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({ 
+          message: "Failed to upload image. Please try again." 
+        });
+      }
+    }
+
     // Create deposit record
     const deposit = await prisma.deposit.create({
       data: {
         userId,
         amount: parseFloat(amount),
         txHash: txHash || null,
-        proofImage: req.file ? `/uploads/deposits/${req.file.filename}` : null,
+        proofImage: proofImageUrl, // Store Cloudinary URL instead of local path
         status: "pending"
       }
     });
@@ -94,7 +142,8 @@ export const submitDepositProof = asyncHandler(async (req, res) => {
     res.json({
       message: "Deposit submitted for verification",
       depositId: deposit.id,
-      status: deposit.status
+      status: deposit.status,
+      proofImageUrl: proofImageUrl // Return the URL for confirmation
     });
   });
 });
