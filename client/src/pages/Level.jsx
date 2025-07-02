@@ -34,7 +34,7 @@ const VIPLevelsPage = () => {
         setIsLoading(true);
         
         // Fetch VIP levels
-        const levelsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vip-levels`, {
+        const levelsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/levels`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           }
