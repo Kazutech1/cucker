@@ -4,18 +4,23 @@ const prisma = new PrismaClient();
 // Admin Dashboard Stats
 export const getDashboardStats = async (req, res) => {
   try {
-    const [users, deposits, withdrawals, earnings] = await Promise.all([
+    const [users, deposits, withdrawals, earnings, totalDepositsAmount] = await Promise.all([
       prisma.user.count(),
       prisma.deposit.count(),
       prisma.withdrawal.count(),
       prisma.user.aggregate({
         _sum: { profitBalance: true }
+      }),
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: { status: 'verified' } // Only sum verified deposits if needed
       })
     ]);
 
     res.json({
       totalUsers: users,
-      totalDeposits: deposits,
+      totalDeposits: deposits, // This is still the count of deposits
+      totalDepositsAmount: totalDepositsAmount._sum.amount || 0, // This is the sum of all deposit amounts
       totalWithdrawals: withdrawals,
       totalEarnings: earnings._sum.profitBalance || 0
     });
