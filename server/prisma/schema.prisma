@@ -29,6 +29,7 @@ model User {
   profile     Profile?
   withdrawal Withdrawal[]
   deposit    Deposit[]
+  appReviewTasks AppReviewTask[]
 }
 
 model VipLevel {
@@ -47,7 +48,6 @@ model Investment {
   amount         Float
   startDate      DateTime  @default(now())
   lastProfitDate DateTime?
-
 }
 
 model EarningsHistory {
@@ -55,9 +55,9 @@ model EarningsHistory {
   userId String
   amount Float
   date   DateTime @default(now())
- 
+  type   String   @default("daily") // daily, app_review, bonus, etc.
+  taskId String?  // Reference to app review task if applicable
 }
-
 
 model Withdrawal {
   id              String   @id @default(uuid())
@@ -76,6 +76,9 @@ model Profile {
   userId        String   @unique
   vipLevel      Int?      @default(0)
   totalInvested Float    @default(0)
+  dailyTasksCompleted Int @default(0)
+  dailyTasksLimit Int    @default(5)  // ADD THIS LINE
+  lastTaskReset DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -83,7 +86,6 @@ model Profile {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   vipLevelData VipLevel? @relation(fields: [vipLevel], references: [level])
 }
-
 
 model Deposit {
   id          String   @id @default(uuid())
@@ -107,7 +109,6 @@ model AdminWallet {
   createdAt   DateTime @default(now())
 }
 
-
 model Notification {
   id          String   @id @default(uuid())
   title       String
@@ -115,6 +116,36 @@ model Notification {
   isRead      Boolean  @default(false)
   type        String   @default("info") // info, warning, success, error
   createdAt   DateTime @default(now())
-  
+}
+
+// New models for app review system
+model AppReview {
+  id            String   @id @default(uuid())
+  appName       String
+  appImage      String   // URL to app image
+  appReview     String   // Review description/instructions
+  appProfit     Float    // Profit amount for completing this task
+  isActive      Boolean  @default(true)
+  totalTasks    Int      @default(0) // Total tasks admin wants to distribute
+  completedTasks Int     @default(0) // Tasks completed by users
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
   // Relations
+  tasks AppReviewTask[]
+}
+
+model AppReviewTask {
+  id            String   @id @default(uuid())
+  userId        String
+  appReviewId   String
+  status        String   @default("pending") // pending, completed
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id])
+  appReview AppReview @relation(fields: [appReviewId], references: [id])
+
+  @@unique([userId, appReviewId]) // Prevent duplicate tasks for same user
 }
