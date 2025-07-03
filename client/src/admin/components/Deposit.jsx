@@ -54,10 +54,10 @@ const ADeposits = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  const openProcessModal = (deposit) => {
+  const openProcessModal = (deposit, action = 'verify') => {
     setCurrentDeposit({
       id: deposit.id,
-      status: 'verified',
+      status: action === 'verify' ? 'verified' : 'rejected',
       proofImage: deposit.proofImage
     });
     setModalOpen(true);
@@ -136,15 +136,13 @@ const ADeposits = () => {
     }
   };
 
-  
-   const toggleMobileSidebar = () => {
+  const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
-
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="deposits"   isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar}  />
+      <Sidebar active="deposits" isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar} />
       
       <main className="flex-1 p-4 md:p-4 md:ml-64">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Deposit Management</h1>
@@ -202,13 +200,13 @@ const ADeposits = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proof Image</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proof Image</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -219,15 +217,15 @@ const ADeposits = () => {
                   ) : (
                     deposits.map((deposit) => (
                       <tr key={deposit.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{deposit.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{deposit.id}</td>
+                        <td className="px-3 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{deposit.user.username}</div>
                           <div className="text-sm text-gray-500">{deposit.user.id}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                           {formatCurrency(deposit.amount)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                           <a 
                             href={deposit.proofImage} 
                             target="_blank" 
@@ -237,22 +235,30 @@ const ADeposits = () => {
                             <FiEye className="mr-1" /> View Proof
                           </a>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(deposit.status)}`}>
                             {deposit.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(deposit.createdAt)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
                           {deposit.status === 'pending' && (
-                            <button
-                              onClick={() => openProcessModal(deposit)}
-                              className="flex items-center px-3 py-1 bg-teal-100 text-teal-800 rounded hover:bg-teal-200 text-sm"
-                            >
-                              <FiCheck className="mr-1" /> Verify
-                            </button>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => openProcessModal(deposit, 'verify')}
+                                className="flex items-center px-3 py-1 bg-teal-100 text-teal-800 rounded hover:bg-teal-200 text-sm"
+                              >
+                                <FiCheck className="mr-1" /> Verify
+                              </button>
+                              <button
+                                onClick={() => openProcessModal(deposit, 'decline')}
+                                className="flex items-center px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 text-sm"
+                              >
+                                <FiX className="mr-1" /> Decline
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -265,13 +271,15 @@ const ADeposits = () => {
         </div>
       </main>
 
-      {/* Verify Deposit Modal */}
+      {/* Verify/Decline Deposit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6">
               <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">Verify Deposit</h3>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {currentDeposit.status === 'verified' ? 'Verify Deposit' : 'Decline Deposit'}
+                </h3>
                 <button
                   onClick={closeModal}
                   className="text-gray-400 hover:text-gray-500"
@@ -282,7 +290,7 @@ const ADeposits = () => {
               
               <div className="mt-4 space-y-4">
                 <div>
-                  <label htmlFor="actionId" className="block text-sm font-medium text-gray-700">ID</label>
+                  <label htmlFor="actionId" className="block text-sm font-medium text-gray-700">Deposit ID</label>
                   <input
                     type="text"
                     id="actionId"
@@ -293,15 +301,15 @@ const ADeposits = () => {
                 </div>
                 
                 <div>
-                  <label htmlFor="actionStatus" className="block text-sm font-medium text-gray-700">Status</label>
+                  <label htmlFor="actionStatus" className="block text-sm font-medium text-gray-700">Action</label>
                   <select
                     id="actionStatus"
                     value={currentDeposit.status}
                     onChange={handleStatusChange}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   >
-                    <option value="verified">Verified</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="verified">Verify</option>
+                    <option value="rejected">Decline</option>
                   </select>
                 </div>
                 
@@ -326,9 +334,13 @@ const ADeposits = () => {
                 </button>
                 <button
                   onClick={submitAction}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    currentDeposit.status === 'verified' 
+                      ? 'bg-teal-600 hover:bg-teal-700' 
+                      : 'bg-red-600 hover:bg-red-700'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500`}
                 >
-                  Submit
+                  {currentDeposit.status === 'verified' ? 'Verify' : 'Decline'}
                 </button>
               </div>
             </div>

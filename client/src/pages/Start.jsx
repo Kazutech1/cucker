@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   FiHome, 
   FiTrendingUp, 
@@ -11,23 +10,29 @@ import {
   FiClock,
   FiCheck,
   FiArrowUp,
-  FiArrowDown
+  FiArrowDown,
+  FiRefreshCw,
+  FiPlus
 } from 'react-icons/fi';
 import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/Spinner';
+import TaskPopup from '../components/TaskPopup';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userData, setUserData] = useState(null);
   const [profitBalance, setProfitBalance] = useState(0);
-  const [earningsData, setEarningsData] = useState(null);
-  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [claimMessage, setClaimMessage] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [currentTask, setCurrentTask] = useState(null);
+  const [showTaskPopup, setShowTaskPopup] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [taskStats, setTaskStats] = useState({
+    today: { completed: 0, limit: 5 },
+    total: { earnings: 0 }
+  });
   
   const navigate = useNavigate();
 
@@ -35,7 +40,6 @@ const Dashboard = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -43,16 +47,6 @@ const Dashboard = () => {
     }).format(amount || 0);
   };
 
-  // Format date
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Get VIP level name
   const getVipLevelName = (level) => {
     const names = {
       0: 'Basic Investor',
@@ -64,7 +58,6 @@ const Dashboard = () => {
     return names[level] || 'Premium Investor';
   };
 
-  // Get VIP ROI
   const getVipRoi = (level) => {
     const roiRates = {
       0: 0,
@@ -76,10 +69,8 @@ const Dashboard = () => {
     return roiRates[level] || 0;
   };
 
-  // Fetch user profile
   const fetchUserProfile = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/');
@@ -106,79 +97,12 @@ const Dashboard = () => {
       
     } catch (error) {
       console.error('Profile fetch error:', error);
-      setClaimMessage({ text: 'Failed to load profile data', type: 'error' });
-    } finally {
-      setLoading(false);
+      setMessage({ text: 'Failed to load profile data', type: 'error' });
     }
   };
 
-  // Fetch earnings info
-  const fetchEarningsInfo = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch( `${import.meta.env.VITE_API_BASE_URL}/api/earnings/daily`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch earnings info');
-      }
-      
-      const data = await response.json();
-      setEarningsData(data);
-      
-      // Start countdown if needed
-      if (!data.canClaim && data.nextAvailable) {
-        const nextAvailable = new Date(data.nextAvailable);
-        const now = new Date();
-        const timeDiff = nextAvailable.getTime() - now.getTime();
-        
-        if (timeDiff > 0) {
-          startCountdown(timeDiff);
-        }
-      }
-      
-    } catch (error) {
-      console.error('Earnings info fetch error:', error);
-      setClaimMessage({ text: 'Failed to load earnings information', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch transactions
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/transactions`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTransactions(data.transactions || []);
-      } else {
-        setTransactions([]);
-      }
-      
-    } catch (error) {
-      console.error('Transactions fetch error:', error);
-      setTransactions([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch withdrawal info
   const fetchWithdrawalInfo = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('token');
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/withdrawal/info`, {
         headers: {
@@ -195,72 +119,130 @@ const Dashboard = () => {
       
     } catch (error) {
       console.error('Withdrawal info fetch error:', error);
-      setClaimMessage({ text: 'Failed to load withdrawal info', type: 'error' });
+      setMessage({ text: 'Failed to load withdrawal info', type: 'error' });
+    }
+  };
+
+  const fetchTaskStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/earnings/user/tasks/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch task stats');
+      }
+
+      const data = await response.json();
+      setTaskStats(data.data);
+    } catch (error) {
+      console.error('Task stats fetch error:', error);
+    }
+  };
+
+  const fetchUserTasks = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/earnings/user/tasks`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+
+      const data = await response.json();
+      return data.data.tasks || [];
+    } catch (error) {
+      console.error('Task fetch error:', error);
+      setMessage({ text: error.message || 'Failed to load tasks', type: 'error' });
+      return [];
+    }
+  };
+
+  const getNewTask = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user can get more tasks
+      if (taskStats.today.completed >= taskStats.today.limit) {
+        setMessage({ text: "You've reached your daily task limit", type: 'error' });
+        return;
+      }
+
+      // Get user's tasks
+      const tasks = await fetchUserTasks();
+      const pendingTasks = tasks.filter(t => t.status === 'pending');
+      
+      if (pendingTasks.length > 0) {
+        setCurrentTask(pendingTasks[0]);
+        setShowTaskPopup(true);
+      } else {
+        setMessage({ text: "No available tasks at the moment", type: 'info' });
+      }
+
+    } catch (error) {
+      console.error('Task error:', error);
+      setMessage({ text: error.message || 'Failed to get task', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Countdown timer
-  const startCountdown = (initialTimeMs) => {
-    let remainingTime = initialTimeMs;
-    
-    const timer = setInterval(() => {
-      remainingTime -= 1000;
-      
-      if (remainingTime <= 0) {
-        clearInterval(timer);
-        fetchEarningsInfo();
-        return;
-      }
-      
-      const hours = Math.floor(remainingTime / (1000 * 60 * 60));
-      const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
-      
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  };
-
-  // Claim daily profit
-  const claimDailyProfit = async () => {
+  const completeTask = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/earnings/daily`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/earnings/user/tasks/${currentTask.id}/complete`, 
+        {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
-      
+      );
+
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to claim profit');
+        throw new Error(data.message || 'Failed to complete task');
       }
-      
-      await Promise.all([
-        fetchUserProfile(),
-        fetchEarningsInfo(),
-        fetchTransactions(),
-        fetchWithdrawalInfo()
-      ]);
-      
-      setClaimMessage({ text: 'Profit claimed successfully!', type: 'success' });
-      
+
+      // Update local state
+      setTaskStats(prev => ({
+        today: {
+          completed: prev.today.completed + 1,
+          limit: prev.today.limit
+        },
+        total: {
+          earnings: prev.total.earnings + currentTask.appReview.appProfit
+        }
+      }));
+
+      setMessage({ 
+        text: `Task completed! +$${currentTask.appReview.appProfit.toFixed(2)}`, 
+        type: 'success' 
+      });
+      setShowTaskPopup(false);
+      setCurrentTask(null);
+
+      // Refresh tasks
+      await fetchTaskStats();
+      await fetchWithdrawalInfo();
+
     } catch (error) {
-      console.error('Claim error:', error);
-      setClaimMessage({ text: error.message || 'Failed to claim profit', type: 'error' });
+      console.error('Completion error:', error);
+      setMessage({ text: error.message || 'Failed to complete task', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Initialize dashboard
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -270,34 +252,23 @@ const Dashboard = () => {
 
     const initDashboard = async () => {
       try {
-        setIsInitialLoading(true);
+        setLoading(true);
         await Promise.all([
           fetchUserProfile(),
-          fetchEarningsInfo(),
-          fetchTransactions(),
-          fetchWithdrawalInfo()
+          fetchWithdrawalInfo(),
+          fetchTaskStats()
         ]);
       } catch (error) {
         console.error('Dashboard initialization error:', error);
-        setClaimMessage({ text: 'Failed to initialize dashboard', type: 'error' });
+        setMessage({ text: 'Failed to initialize dashboard', type: 'error' });
       } finally {
-        setIsInitialLoading(false);
+        setLoading(false);
       }
     };
 
     initDashboard();
   }, [navigate]);
 
-  // Loading overlay component
- 
-
-
-  // if (isInitialLoading) {
-  //   return <LoadingSpinner />;
-  // }
-
-  console.log(userData);
-  
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16 relative">
       {loading && <LoadingSpinner />}
@@ -310,7 +281,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 pt-24 pb-32 max-w-4xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <h1 className="text-2xl font-bold">Investment Dashboard</h1>
+          <h1 className="text-2xl font-bold">Task Center</h1>
           {userData && (
             <div className="flex items-center gap-4 bg-teal-400/10 px-4 py-2 rounded-full border border-teal-400/20">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold">
@@ -321,7 +292,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Cards Grid */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Balance Card */}
           <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
@@ -355,87 +326,73 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Claim Card */}
-          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 flex flex-col">
-            <h3 className="text-lg font-semibold mb-4">Daily Profit</h3>
+          {/* Task Stats Card */}
+          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Today's Tasks</h3>
             
-            {/* <div className="flex-grow flex flex-col justify-center py-4 text-center">
-              {earningsData?.canClaim ? (
-                <>
-                  <p className="text-gray-400 mb-2">Available to claim:</p>
-                  <p className="text-green-400 text-2xl font-bold">
-                    {earningsData ? formatCurrency(earningsData.potentialDailyProfit) : '$0.00'}
-                  </p>
-                </>
-              ) : timeLeft ? (
-                <>
-                  <p className="text-gray-400 mb-2">Next claim in:</p>
-                  <p className="text-teal-400 text-2xl font-bold">{timeLeft}</p>
-                </>
-              ) : null}
-            </div> */}
-            
-            <button
-              onClick={claimDailyProfit}
-              disabled={!earningsData?.canClaim || loading}
-              className={`w-full py-3 rounded-lg font-medium transition-all ${
-                earningsData?.canClaim 
-                  ? 'bg-gradient-to-br from-teal-400 to-teal-500 text-white hover:shadow-lg hover:-translate-y-0.5'
-                  : 'bg-white/10 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {loading ? 'Processing...' : 'Claim Daily Profit'}
-            </button>
-            
-            {claimMessage && (
-              <div className={`mt-2 text-sm text-center ${
-                claimMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {claimMessage.text}
+            {taskStats ? (
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Completed:</span>
+                  <span className="text-green-400">{taskStats.today.completed}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Limit:</span>
+                  <span>{taskStats.today.limit}</span>
+                </div>
+                <div className="pt-3 border-t border-teal-400/20">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Total Earnings:</span>
+                    <span className="text-green-400">
+                      {formatCurrency(taskStats.total.earnings)}
+                    </span>
+                  </div>
+                </div>
               </div>
+            ) : (
+              <div className="text-center py-4 text-gray-400">Loading task stats...</div>
             )}
           </div>
         </div>
 
-        {/* Earnings History */}
-        <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
-          <h2 className="text-xl font-bold mb-6">Earnings History</h2>
+        {/* Task Button Section */}
+        <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 text-center">
+          <h2 className="text-xl font-bold mb-6">Complete Tasks</h2>
           
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              No earnings history found
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-teal-400/10">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-teal-400 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-teal-400 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-teal-400 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-teal-400 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-teal-400/10">
-                  {transactions.map((txn, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">{formatDate(txn.date)}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-green-400 font-medium">
-                        {formatCurrency(txn.amount)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">Daily ROI</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">Completed</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {message && (
+            <div className={`mb-6 p-3 rounded-lg ${
+              message.type === 'error' 
+                ? 'bg-red-900/50 border border-red-700' 
+                : message.type === 'success'
+                  ? 'bg-green-900/50 border border-green-700'
+                  : 'bg-blue-900/50 border border-blue-700'
+            }`}>
+              {message.text}
             </div>
           )}
+
+          <button
+            onClick={getNewTask}
+            disabled={loading || (taskStats && taskStats.today.completed >= taskStats.today.limit)}
+            className="w-full max-w-xs py-3 bg-gradient-to-br from-teal-400 to-teal-500 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:-translate-y-0.5 transition-all mx-auto disabled:opacity-50"
+          >
+            <FiRefreshCw /> Get Task
+          </button>
         </div>
       </div>
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Task Popup */}
+      {showTaskPopup && currentTask && (
+        <TaskPopup 
+          task={currentTask} 
+          onComplete={completeTask}
+          onClose={() => setShowTaskPopup(false)}
+          loading={loading}
+        />
+      )}
     </div>
   );
 };

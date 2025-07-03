@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FiEdit2, FiTrash2, FiSave, FiX, FiUser, FiMail, FiPhone, FiDollarSign, FiStar, FiCreditCard } from 'react-icons/fi';
+import { 
+  FiEdit2, FiTrash2, FiSave, FiX, FiUser, FiMail, FiPhone, 
+  FiDollarSign, FiStar, FiCreditCard, FiPlus, FiMinus 
+} from 'react-icons/fi';
 import { FaBars, FaTimes } from 'react-icons/fa';
 import Sidebar from './Sidebar';
 import axios from 'axios';
@@ -24,7 +27,7 @@ const formatDate = (dateString) => {
 const ADashboard = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
-    totalDeposits: 0,
+    totalDepositsAmount: 0,
     totalWithdrawals: 0,
     totalEarnings: 0,
   });
@@ -41,6 +44,11 @@ const ADashboard = () => {
     vipLevel: ''
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [quickAdjust, setQuickAdjust] = useState({
+    field: '',
+    amount: 0,
+    note: ''
+  });
 
   // Configure axios instance
   const api = axios.create({
@@ -60,11 +68,9 @@ const ADashboard = () => {
         const statsResponse = await api.get('/api/admin/stats');
         setStats(statsResponse.data);
         
-        // Fetch users
+        // Fetch users with more details
         const usersResponse = await api.get('/api/admin/users');
         setUsers(usersResponse.data);
-        console.log(usersResponse.data);
-        
         setFilteredUsers(usersResponse.data);
         
       } catch (err) {
@@ -105,6 +111,46 @@ const ADashboard = () => {
     }));
   };
 
+  const handleQuickAdjustChange = (e) => {
+    const { name, value } = e.target;
+    setQuickAdjust(prev => ({
+      ...prev,
+      [name]: name === 'amount' ? parseFloat(value) || 0 : value
+    }));
+  };
+
+  const quickAdjustBalance = async (operation) => {
+    if (!quickAdjust.amount || quickAdjust.amount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const amount = operation === 'add' ? quickAdjust.amount : -quickAdjust.amount;
+      const field = quickAdjust.field || 'balance';
+      
+      const response = await api.put(`/api/admin/users/${selectedUser.id}`, {
+        [field]: selectedUser[field] + amount
+      });
+
+      // Update the users list
+      setUsers(prev => prev.map(user => 
+        user.id === response.data.id ? response.data : user
+      ));
+      
+      setSelectedUser(response.data);
+      setQuickAdjust({ field: '', amount: 0, note: '' });
+      setSuccess(`Successfully ${operation === 'add' ? 'added to' : 'subtracted from'} user's ${field}`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to adjust balance');
+      console.error('Adjust error:', err.response?.data || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const saveUserChanges = async () => {
     try {
       setLoading(true);
@@ -112,7 +158,6 @@ const ADashboard = () => {
       // Prepare the data to send
       const updateData = {
         ...editedUser,
-        // Ensure profile data is properly structured
         profile: {
           vipLevel: editedUser.profile?.vipLevel,
           totalInvested: editedUser.profile?.totalInvested
@@ -183,10 +228,33 @@ const ADashboard = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
+  const resetUserTasks = async (userId) => {
+    if (!confirm('Reset all tasks for this user?')) return;
+    
+    try {
+      await api.post(`/api/admin/tasks/reset-user/${userId}`);
+      setSuccess('User tasks reset successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reset tasks');
+      console.error('Reset tasks error:', err.response?.data || err.message);
+    }
+  };
+
+  const updateTaskLimit = async (userId, newLimit) => {
+    try {
+      await api.put('/api/admin/limit', { userId, newLimit });
+      setSuccess('Task limit updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update task limit');
+      console.error('Update limit error:', err.response?.data || err.message);
+    }
+  };
+
   if (loading && users.length === 0) {
     return (
       <div className="flex h-screen bg-gray-100">
-        <Sidebar isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar} />
         <div className="flex-1 p-8 md:ml-64">
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
@@ -219,7 +287,7 @@ const ADashboard = () => {
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-gray-500 text-sm font-medium">Total Deposits</h3>
-            <p className="text-xl md:text-2xl font-bold text-gray-800">{formatCurrency(stats.totalDeposits)}</p>
+            <p className="text-xl md:text-2xl font-bold text-gray-800">{formatCurrency(stats.totalDepositsAmount)}</p>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-gray-500 text-sm font-medium">Total Withdrawals</h3>
@@ -284,7 +352,11 @@ const ADashboard = () => {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
-                            <FiUser className="text-teal-600" />
+                            <img 
+                              src={user.profilePicture}
+                              alt="Profile" 
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{user.username}</div>
@@ -336,7 +408,7 @@ const ADashboard = () => {
       {/* User Details Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 md:p-6">
               <div className="flex justify-between items-start">
                 <h2 className="text-xl md:text-2xl font-bold text-gray-800">
@@ -384,6 +456,85 @@ const ADashboard = () => {
               )}
               
               <div className="mt-6 space-y-4">
+                {/* Quick Adjust Section */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-lg font-semibold mb-3">Quick Adjust</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <select
+                      name="field"
+                      value={quickAdjust.field}
+                      onChange={handleQuickAdjustChange}
+                      className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                    >
+                      <option value="">Select Field</option>
+                      <option value="balance">Balance</option>
+                      <option value="profitBalance">Profit Balance</option>
+                      <option value="totalInvested">Total Invested</option>
+                    </select>
+                    
+                    <input
+                      type="number"
+                      name="amount"
+                      value={quickAdjust.amount}
+                      onChange={handleQuickAdjustChange}
+                      placeholder="Amount"
+                      className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                    />
+                    
+                    <input
+                      type="text"
+                      name="note"
+                      value={quickAdjust.note}
+                      onChange={handleQuickAdjustChange}
+                      placeholder="Note (optional)"
+                      className="col-span-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                    />
+                    
+                    <div className="col-span-1 flex space-x-2">
+                      <button
+                        onClick={() => quickAdjustBalance('add')}
+                        className="flex-1 bg-green-500 text-white px-3 py-2 rounded-md text-sm hover:bg-green-600 flex items-center justify-center"
+                      >
+                        <FiPlus className="mr-1" /> Add
+                      </button>
+                      <button
+                        onClick={() => quickAdjustBalance('subtract')}
+                        className="flex-1 bg-red-500 text-white px-3 py-2 rounded-md text-sm hover:bg-red-600 flex items-center justify-center"
+                      >
+                        <FiMinus className="mr-1" /> Subtract
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Task Management Section */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-lg font-semibold mb-3">Task Management</h3>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => resetUserTasks(selectedUser.id)}
+                      className="bg-yellow-500 text-white px-3 py-2 rounded-md text-sm hover:bg-yellow-600"
+                    >
+                      Reset All Tasks
+                    </button>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        placeholder="New task limit"
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 w-24"
+                      />
+                      <button
+                        onClick={() => updateTaskLimit(selectedUser.id, /* value from input */)}
+                        className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-600"
+                      >
+                        Set Task Limit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* User Details Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Read-only fields */}
                   <div className="bg-gray-50 p-3 rounded-md">
@@ -516,7 +667,7 @@ const ADashboard = () => {
                     <h3 className="text-sm font-medium text-gray-500 flex items-center">
                       <FiStar className="mr-1" /> VIP Level
                     </h3>
-                    {editMode ? (
+                    {/* {editMode ? (
                       <select
                         name="vipLevel"
                         value={editedUser.profile?.vipLevel || 0}
@@ -528,10 +679,11 @@ const ADashboard = () => {
                         ))}
                       </select>
                     ) : (
+                    
+                    )} */}
                       <p className="mt-1 text-sm text-gray-900">
-                        {selectedUser.profile?.vipLevel || 0}
+                        {selectedUser.profile?.vipLevel || 0} "Edit in Vip management"
                       </p>
-                    )}
                   </div>
                   
                   <div className="p-3 rounded-md border border-gray-200">

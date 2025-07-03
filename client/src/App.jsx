@@ -19,6 +19,7 @@ import ADeposits from './admin/components/Deposit';
 import ANotifications from './admin/components/Notifications';
 import AWallets from './admin/components/Wallet';
 import VipManagement from './admin/components/Vip';
+import ATasks from './admin/components/Tasks';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
                                  <Route path="/admin/notifications" element={<ANotifications />} />
                                      <Route path="/admin/wallets" element={<AWallets />} />
                                           <Route path="/admin/vip" element={<VipManagement />} />
+                                           <Route path="/admin/tasks" element={<ATasks />} />
 
 
 

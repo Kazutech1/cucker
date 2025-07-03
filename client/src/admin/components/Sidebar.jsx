@@ -86,11 +86,12 @@ const Sidebar = ({ isMobileOpen, toggleMobileSidebar }) => {
 
   const navItems = [
     { path: '/admin/dashboard', icon: <FiGrid size={20} />, label: 'Dashboard' },
-    { path: '/admin/withdrawals', icon: <FiDollarSign size={20} />, label: 'Withdrawals' },
-    { path: '/admin/deposits', icon: <FiDownload size={20} />, label: 'Deposits' },
+    { path: '/admin/withdrawals', icon: <FiDollarSign size={20} />, label: 'Manage Withdrawals' },
+    { path: '/admin/deposits', icon: <FiDownload size={20} />, label: 'Manage Deposits' },
     { path: '/admin/vip', icon: <FiStar size={20} />, label: 'VIP Levels' },
-    { path: '/admin/notifications', icon: <FiBell size={20} />, label: 'Notifications' },
-    { path: '/admin/wallets', icon: <FiCreditCard size={20} />, label: 'Wallets' },
+    { path: '/admin/notifications', icon: <FiBell size={20} />, label: 'Manage Notifications' },
+    { path: '/admin/wallets', icon: <FiCreditCard size={20} />, label: 'Manage Wallets' },
+     { path: '/admin/tasks', icon: <FiCreditCard size={20} />, label: 'Manage Tasks' },
   ];
 
   return (
