@@ -72,10 +72,10 @@ router.get('/notifications', getNotifications);
 router.delete('/notifications/:notificationId', deleteNotification);
 
 
-router.post('/app-reviews',  createAppReview);
-router.get('/app-reviews', getAppReviews);
-router.put('/app-reviews/:appReviewId',  updateAppReview);
-router.delete('/app-reviews/:appReviewId',  deleteAppReview);
+router.post('/reviews',  createAppReview);
+router.get('/reviews', getAppReviews);
+router.put('/reviews/:appReviewId',  updateAppReview);
+router.delete('/reviews/:appReviewId',  deleteAppReview);
 
 // Admin Analytics
 router.get('/analytics', getTaskAnalytics);
