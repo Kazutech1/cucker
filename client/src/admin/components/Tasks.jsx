@@ -111,7 +111,7 @@ const ATasks = () => {
     const queryParams = new URLSearchParams();
     if (appReviewFilter.isActive !== '') queryParams.append('isActive', appReviewFilter.isActive);
     
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/app-reviews?${queryParams.toString()}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews?${queryParams.toString()}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
       }
@@ -202,7 +202,7 @@ const ATasks = () => {
       formData.append('totalTasks', newAppReview.totalTasks);
       formData.append('isActive', newAppReview.isActive);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/app-reviews`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
@@ -247,7 +247,7 @@ const ATasks = () => {
       formData.append('totalTasks', editAppReview.totalTasks);
       formData.append('isActive', editAppReview.isActive);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/app-reviews/${editAppReview.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews/${editAppReview.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
@@ -278,7 +278,7 @@ const ATasks = () => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/app-reviews/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
