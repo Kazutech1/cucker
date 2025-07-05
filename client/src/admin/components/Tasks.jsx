@@ -1,401 +1,383 @@
 import { useState, useEffect } from 'react';
-import { 
-  FiFilter, 
-  FiX, 
-  FiCheck, 
-  FiClock, 
-  FiPlus, 
-  FiEdit, 
-  FiTrash2,
-  FiRefreshCw,
-  FiUsers,
-  FiBarChart2,
-  FiUser,
-  FiDollarSign,
-  FiCheckCircle,
-  FiUpload
-} from 'react-icons/fi';
+import { FiFilter, FiX, FiCheck, FiClock, FiUser, FiPlus, FiRefreshCw, FiEdit, FiTrash2 } from 'react-icons/fi';
 import Sidebar from './Sidebar';
 
 const ATasks = () => {
-  // State for different sections
-  const [activeTab, setActiveTab] = useState('appReviews');
-  const [appReviews, setAppReviews] = useState([]);
-  const [usersWithTasks, setUsersWithTasks] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
+  // State for tasks data
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // State for filters
+  const [filters, setFilters] = useState({
+    isActive: '',
+    search: ''
+  });
   
   // State for modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [resetModalOpen, setResetModalOpen] = useState(false);
-  const [userLimitModalOpen, setUserLimitModalOpen] = useState(false);
+  const [userTaskModalOpen, setUserTaskModalOpen] = useState(false);
   
-  // State for forms
-  const [newAppReview, setNewAppReview] = useState({
+  // State for form data
+  const [newTask, setNewTask] = useState({
     appName: '',
-    appImage: null, // Changed from string to File object
     appReview: '',
     appProfit: '',
-    totalTasks: '100',
-    isActive: true
+    isActive: true,
+    appImage: null
   });
   
-  const [editAppReview, setEditAppReview] = useState({
+  const [editTask, setEditTask] = useState({
     id: '',
     appName: '',
-    appImage: null, // Can be either File object or string URL
     appReview: '',
     appProfit: '',
-    totalTasks: '',
-    isActive: true
+    isActive: true,
+    appImage: null
   });
   
-  const [resetOptions, setResetOptions] = useState({
-    resetType: 'pending',
-    userId: ''
-  });
-  
-  const [userLimit, setUserLimit] = useState({
+  const [resetTaskData, setResetTaskData] = useState({
     userId: '',
-    dailyTaskLimit: '5'
+    type: 'all' // 'all' or 'user'
   });
   
-  // Preview images
-  const [createPreview, setCreatePreview] = useState(null);
-  const [editPreview, setEditPreview] = useState(null);
-  
-  // Filter states
-  const [appReviewFilter, setAppReviewFilter] = useState({
-    isActive: ''
+  const [userTaskData, setUserTaskData] = useState({
+    userId: '',
+    taskAmount: 5
   });
   
-  const [analyticsFilter, setAnalyticsFilter] = useState({
-    period: '7days'
-  });
+  const [selectedUserTasks, setSelectedUserTasks] = useState([]);
+  const [selectedUserStats, setSelectedUserStats] = useState(null);
   
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // State for mobile sidebar
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Fetch data based on active tab
+  // Fetch tasks on component mount and filter change
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        switch (activeTab) {
-          case 'appReviews':
-            await fetchAppReviews();
-            break;
-          case 'userManagement':
-            await fetchUsersWithTasks();
-            break;
-          case 'analytics':
-            await fetchAnalytics();
-            break;
-          default:
-            break;
+    fetchTasks();
+  }, [filters]);
+
+  // Fetch all tasks
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const queryParams = new URLSearchParams();
+      if (filters.isActive) queryParams.append('isActive', filters.isActive);
+      if (filters.search) queryParams.append('search', filters.search);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/all?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to fetch tasks');
+      }
+      
+      const data = await response.json();
+      setTasks(data.tasks);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handle file upload for new task
+  const handleFileChange = (e) => {
+    setNewTask(prev => ({ ...prev, appImage: e.target.files[0] }));
+  };
+
+  // Handle file upload for edit task
+  const handleEditFileChange = (e) => {
+    setEditTask(prev => ({ ...prev, appImage: e.target.files[0] }));
+  };
+
+  // Open create task modal
+  const openCreateModal = () => {
+    setNewTask({
+      appName: '',
+      appReview: '',
+      appProfit: '',
+      isActive: true,
+      appImage: null
+    });
+    setCreateModalOpen(true);
+  };
+
+  // Open edit task modal
+  const openEditModal = (task) => {
+    setEditTask({
+      id: task.id,
+      appName: task.appName,
+      appReview: task.appReview,
+      appProfit: task.appProfit,
+      isActive: task.isActive,
+      appImage: null
+    });
+    setEditModalOpen(true);
+  };
+
+  // Open reset tasks modal
+  const openResetModal = (type = 'all', userId = '') => {
+    setResetTaskData({
+      userId,
+      type
+    });
+    setResetModalOpen(true);
+  };
+
+  // Open user task management modal
+  const openUserTaskModal = async (userId = '') => {
+    if (userId) {
+      try {
+        // Fetch user's task stats
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/stats`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch user stats');
+        
+        const data = await response.json();
+        const userStats = data.stats.find(stat => stat.userId === userId);
+        
+        if (userStats) {
+          setUserTaskData({
+            userId,
+            taskAmount: userStats.dailyTasksLimit
+          });
+          setSelectedUserStats(userStats);
+        }
+        
+        // Fetch user's tasks
+        const tasksResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/history/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+          }
+        });
+        
+        if (!tasksResponse.ok) throw new Error('Failed to fetch user tasks');
+        
+        const tasksData = await tasksResponse.json();
+        setSelectedUserTasks(tasksData.tasks);
       } catch (err) {
         setError(err.message);
-      } finally {
-        setLoading(false);
       }
-    };
-    
-    fetchData();
-  }, [activeTab, appReviewFilter, analyticsFilter]);
-
-  const fetchAppReviews = async () => {
-    const queryParams = new URLSearchParams();
-    if (appReviewFilter.isActive !== '') queryParams.append('isActive', appReviewFilter.isActive);
-    
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews?${queryParams.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-      }
-    });
-    
-    if (!response.ok) throw new Error('Failed to fetch app reviews');
-    
-    const data = await response.json();
-    setAppReviews(data.data);
-  };
-
-  const fetchUsersWithTasks = async () => {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/pending`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-      }
-    });
-    
-    if (!response.ok) throw new Error('Failed to fetch users with pending tasks');
-    
-    const data = await response.json();
-    console.log(data);
-    
-    setUsersWithTasks(data.data.users);
-  };
-
-  const fetchAnalytics = async () => {
-    const queryParams = new URLSearchParams();
-    if (analyticsFilter.period) queryParams.append('period', analyticsFilter.period);
-    
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/analytics?${queryParams.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-      }
-    });
-    
-    if (!response.ok) throw new Error('Failed to fetch task analytics');
-    
-    const data = await response.json();
-    setAnalytics(data.data);
-  };
-
-  const handleCreateImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setNewAppReview({
-        ...newAppReview,
-        appImage: file
+    } else {
+      setUserTaskData({
+        userId: '',
+        taskAmount: 5
       });
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCreatePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      setSelectedUserStats(null);
+      setSelectedUserTasks([]);
     }
+    
+    setUserTaskModalOpen(true);
   };
 
-  const handleEditImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setEditAppReview({
-        ...editAppReview,
-        appImage: file
-      });
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+  // Close all modals
+  const closeModal = () => {
+    setCreateModalOpen(false);
+    setEditModalOpen(false);
+    setResetModalOpen(false);
+    setUserTaskModalOpen(false);
+    setError('');
   };
 
-  const createAppReview = async () => {
+  // Create new task
+  const createTask = async () => {
     try {
-      setLoading(true);
-      
-      const formData = new FormData();
-      formData.append('appName', newAppReview.appName);
-      if (newAppReview.appImage) {
-        formData.append('appImage', newAppReview.appImage);
+      if (!newTask.appName || !newTask.appReview || !newTask.appProfit || !newTask.appImage) {
+        setError('All fields are required including app image');
+        return;
       }
-      formData.append('appReview', newAppReview.appReview);
-      formData.append('appProfit', newAppReview.appProfit);
-      formData.append('totalTasks', newAppReview.totalTasks);
-      formData.append('isActive', newAppReview.isActive);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews`, {
+
+      const formData = new FormData();
+      formData.append('appName', newTask.appName);
+      formData.append('appReview', newTask.appReview);
+      formData.append('appProfit', newTask.appProfit);
+      formData.append('isActive', newTask.isActive);
+      formData.append('appImage', newTask.appImage);
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/create`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         },
         body: formData
       });
       
-      if (!response.ok) throw new Error('Failed to create app review');
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to create task');
+      }
       
       const data = await response.json();
-      setAppReviews([data.data, ...appReviews]);
-      setCreateModalOpen(false);
-      setNewAppReview({
-        appName: '',
-        appImage: null,
-        appReview: '',
-        appProfit: '',
-        totalTasks: '100',
-        isActive: true
-      });
-      setCreatePreview(null);
+      alert(data.message);
+      closeModal();
+      fetchTasks();
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const updateAppReview = async () => {
+  // Update task
+  const updateTask = async () => {
     try {
-      setLoading(true);
-      
-      const formData = new FormData();
-      formData.append('appName', editAppReview.appName);
-      if (editAppReview.appImage instanceof File) {
-        formData.append('appImage', editAppReview.appImage);
-      } else if (editAppReview.appImage === null) {
-        formData.append('removeImage', 'true');
+      if (!editTask.appName || !editTask.appReview || !editTask.appProfit) {
+        setError('All fields except image are required');
+        return;
       }
-      formData.append('appReview', editAppReview.appReview);
-      formData.append('appProfit', editAppReview.appProfit);
-      formData.append('totalTasks', editAppReview.totalTasks);
-      formData.append('isActive', editAppReview.isActive);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews/${editAppReview.id}`, {
+
+      const formData = new FormData();
+      formData.append('appName', editTask.appName);
+      formData.append('appReview', editTask.appReview);
+      formData.append('appProfit', editTask.appProfit);
+      formData.append('isActive', editTask.isActive);
+      if (editTask.appImage) {
+        formData.append('appImage', editTask.appImage);
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/update/${editTask.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         },
         body: formData
       });
       
-      if (!response.ok) throw new Error('Failed to update app review');
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to update task');
+      }
       
       const data = await response.json();
-      setAppReviews(appReviews.map(review => 
-        review.id === editAppReview.id ? data.data : review
-      ));
-      setEditModalOpen(false);
-      setEditPreview(null);
+      alert(data.message);
+      closeModal();
+      fetchTasks();
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const deleteAppReview = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this app review? All associated tasks will also be deleted.')) {
-      return;
-    }
+  // Delete task
+  const deleteTask = async (taskId) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
     
     try {
-      setLoading(true);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reviews/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/delete/${taskId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         }
       });
       
-      if (!response.ok) throw new Error('Failed to delete app review');
-      
-      setAppReviews(appReviews.filter(review => review.id !== id));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetAllTasks = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/tasks/reset-all`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ resetType: resetOptions.resetType })
-      });
-      
-      if (!response.ok) throw new Error('Failed to reset tasks');
-      
-      const data = await response.json();
-      alert(data.message);
-      setResetModalOpen(false);
-      if (activeTab === 'userManagement') {
-        await fetchUsersWithTasks();
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to delete task');
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetUserTasks = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/tasks/reset-user/${resetOptions.userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ resetType: resetOptions.resetType })
-      });
-      
-      if (!response.ok) throw new Error('Failed to reset user tasks');
       
       const data = await response.json();
       alert(data.message);
-      setResetModalOpen(false);
-      await fetchUsersWithTasks();
+      fetchTasks();
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const updateUserTaskLimit = async () => {
+  // Reset tasks
+  const resetTasks = async () => {
     try {
-      setLoading(true);
+      let response;
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/limit`, {
+      if (resetTaskData.type === 'all') {
+        response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reset`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } else {
+        response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/reset/${resetTaskData.userId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+      
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to reset tasks');
+      }
+      
+      const data = await response.json();
+      alert(data.message);
+      closeModal();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Set user task amount
+  const setUserTaskAmount = async () => {
+    try {
+      if (!userTaskData.userId || userTaskData.taskAmount < 0) {
+        setError('Valid user ID and task amount are required');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/settasks/${userTaskData.userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          userId: userLimit.userId,
-          dailyTaskLimit: userLimit.dailyTaskLimit
-        })
+        body: JSON.stringify({ taskAmount: userTaskData.taskAmount })
       });
       
-      if (!response.ok) throw new Error('Failed to update user task limit');
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
+        throw new Error('Failed to set user task amount');
+      }
       
       const data = await response.json();
       alert(data.message);
-      setUserLimitModalOpen(false);
-      await fetchUsersWithTasks();
+      closeModal();
+      openUserTaskModal(userTaskData.userId); // Refresh user data
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const openEditModal = (appReview) => {
-    setEditAppReview({
-      id: appReview.id,
-      appName: appReview.appName,
-      appImage: appReview.appImage, // This will be the URL string initially
-      appReview: appReview.appReview,
-      appProfit: appReview.appProfit.toString(),
-      totalTasks: appReview.totalTasks.toString(),
-      isActive: appReview.isActive
-    });
-    setEditPreview(appReview.appImage); // Set preview to existing image URL
-    setEditModalOpen(true);
-  };
-
+  // Toggle mobile sidebar
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
+
+  // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -406,23 +388,26 @@ const ATasks = () => {
     });
   };
 
+  // Get status badge class
   const getStatusBadge = (isActive) => {
-    return isActive 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-gray-100 text-gray-800';
-  };
-
-  const getTaskCompletion = (appReview) => {
-    if (appReview.totalTasks === 0) return 'Unlimited';
-    return `${appReview._count?.tasks || 0}/${appReview.totalTasks}`;
+    return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
   };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar active="tasks" isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar} />
       
-      <main className="flex-1 p-2 md:p-6 md:ml-64">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Task Management</h1>
+      <main className="flex-1 p-4 md:p-6 md:ml-64">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Task Management</h1>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <FiPlus className="mr-2" />
+            Create Task
+          </button>
+        </div>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -430,746 +415,529 @@ const ATasks = () => {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('appReviews')}
-              className={`${activeTab === 'appReviews' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              App Reviews
-            </button>
-            <button
-              onClick={() => setActiveTab('userManagement')}
-              className={`${activeTab === 'userManagement' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              User Management
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`${activeTab === 'analytics' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-            >
-              Analytics
-            </button>
-          </nav>
-        </div>
-
-        {/* App Reviews Tab */}
-        {activeTab === 'appReviews' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-800">App Review Tasks</h2>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <select
-                    value={appReviewFilter.isActive}
-                    onChange={(e) => setAppReviewFilter({...appReviewFilter, isActive: e.target.value})}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                  </select>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiFilter className="text-gray-400" />
-                  </div>
-                </div>
-                <button
-                  onClick={() => setCreateModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  <FiPlus className="-ml-1 mr-2 h-5 w-5" />
-                  New App Review
-                </button>
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex flex-wrap gap-4">
+            <div className="relative flex-grow">
+              <input
+                type="text"
+                name="search"
+                value={filters.search}
+                onChange={handleFilterChange}
+                placeholder="Search by app name"
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiFilter className="text-gray-400" />
               </div>
             </div>
             
-            <div className="overflow-x-auto">
-              {loading ? (
-                <div className="flex justify-center items-center p-5">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
-                </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+            <div className="relative">
+              <select
+                name="isActive"
+                value={filters.isActive}
+                onChange={handleFilterChange}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+              >
+                <option value="">All Statuses</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiCheck className="text-gray-400" />
+              </div>
+            </div>
+            
+            <button
+              onClick={() => openResetModal('all')}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <FiRefreshCw className="mr-2" />
+              Reset All Tasks
+            </button>
+          </div>
+        </div>
+
+        {/* Tasks Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex justify-center items-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">App Info</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stats</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {tasks.length === 0 ? (
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">App</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasks</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">No tasks found</td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {appReviews.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" className="px-6 py-4 text-center text-gray-500">No app reviews found</td>
-                      </tr>
-                    ) : (
-                      appReviews.map((app) => (
-                        <tr key={app.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10">
-                                <img className="h-10 w-10 rounded-md" src={app.appImage} alt={app.appName} />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">{app.appName}</div>
-                              </div>
+                  ) : (
+                    tasks.map((task) => (
+                      <tr key={task.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <img className="h-10 w-10 rounded-md" src={task.appImage} alt={task.appName} />
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 line-clamp-2">{app.appReview}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${parseFloat(app.appProfit).toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getTaskCompletion(app)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(app.isActive)}`}>
-                              {app.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(app.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{task.appName}</div>
+                              <div className="text-sm text-gray-500">ID: {task.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 line-clamp-2">{task.appReview}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatCurrency(task.appProfit)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(task.isActive)}`}>
+                            {task.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div>Assigned: {task._count?.taskAssignments || 0}</div>
+                          <div>Completed: {task._count?.userTasks || 0}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(task.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
                             <button
-                              onClick={() => openEditModal(app)}
-                              className="text-teal-600 hover:text-teal-900 mr-4"
-                              title="Edit"
+                              onClick={() => openEditModal(task)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Edit task"
                             >
                               <FiEdit />
                             </button>
                             <button
-                              onClick={() => deleteAppReview(app.id)}
+                              onClick={() => deleteTask(task.id)}
                               className="text-red-600 hover:text-red-900"
-                              title="Delete"
+                              title="Delete task"
                             >
                               <FiTrash2 />
                             </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* User Management Tab */}
-        {activeTab === 'userManagement' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-800">Users with Pending Tasks</h2>
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => setResetModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                  >
-                    <FiRefreshCw className="-ml-1 mr-2 h-5 w-5" />
-                    Reset Tasks
-                  </button>
-                  <button
-                    onClick={() => setUserLimitModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                  >
-                    <FiUser className="-ml-1 mr-2 h-5 w-5" />
-                    Set Task Limit
-                  </button>
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                {loading ? (
-                  <div className="flex justify-center items-center p-5">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
-                  </div>
-                ) : (
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Tasks</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Limit</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Reset</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {usersWithTasks.length === 0 ? (
-                        <tr>
-                          <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No users with pending tasks found</td>
-                        </tr>
-                      ) : (
-                        usersWithTasks.map((user) => (
-                          <tr key={user.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{user.username || user.email}</div>
-                                  <div className="text-sm text-gray-500">{user.id}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {user.pendingTasks}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.dailyTasksLimit}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.lastTaskReset ? formatDate(user.lastTaskReset) : 'Never'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => {
-                                  setResetOptions({
-                                    resetType: 'all',
-                                    userId: user.id
-                                  });
-                                  setResetModalOpen(true);
-                                }}
-                                className="text-orange-600 hover:text-orange-900 mr-4"
-                                title="Reset user tasks"
-                              >
-                                <FiRefreshCw />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setUserLimit({
-                                    userId: user.id,
-                                    dailyTaskLimit: user.dailyTasksLimit.toString()
-                                  });
-                                  setUserLimitModalOpen(true);
-                                }}
-                                className="text-teal-600 hover:text-teal-900"
-                                title="Set task limit"
-                              >
-                                <FiEdit />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* Analytics Tab */}
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-800">Task Analytics</h2>
-                <div className="relative">
-                  <select
-                    value={analyticsFilter.period}
-                    onChange={(e) => setAnalyticsFilter({...analyticsFilter, period: e.target.value})}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+        {/* Create Task Modal */}
+        {createModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-gray-900">Create New Task</h3>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-500"
                   >
-                    <option value="24hours">Last 24 Hours</option>
-                    <option value="7days">Last 7 Days</option>
-                    <option value="30days">Last 30 Days</option>
-                  </select>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiFilter className="text-gray-400" />
-                  </div>
+                    <FiX size={24} />
+                  </button>
                 </div>
-              </div>
-              
-              {loading ? (
-                <div className="flex justify-center items-center p-5">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
-                </div>
-              ) : analytics ? (
-                <div className="p-4 md:p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                          <FiCheckCircle className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">Completed Tasks</h3>
-                          <p className="text-2xl font-bold text-gray-900">{analytics.completedTasks}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
-                          <FiClock className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">Pending Tasks</h3>
-                          <p className="text-2xl font-bold text-gray-900">{analytics.pendingTasks}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                          <FiDollarSign className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">Total Earnings</h3>
-                          <p className="text-2xl font-bold text-gray-900">${parseFloat(analytics.totalEarnings).toFixed(2)}</p>
-                        </div>
-                      </div>
-                    </div>
+                
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label htmlFor="appName" className="block text-sm font-medium text-gray-700">App Name</label>
+                    <input
+                      type="text"
+                      id="appName"
+                      name="appName"
+                      value={newTask.appName}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, appName: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
                   </div>
                   
-                  <div className="mb-8">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Top Performing Apps</h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">App</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit per Task</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed Tasks</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Earnings</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {analytics.topApps.length === 0 ? (
-                            <tr>
-                              <td colSpan="4" className="px-6 py-4 text-center text-gray-500">No data available</td>
-                            </tr>
-                          ) : (
-                            analytics.topApps.map((app) => (
-                              <tr key={app.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">{app.appName}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  ${parseFloat(app.appProfit).toFixed(2)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {app.completedTasks}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  ${parseFloat(app.appProfit * app.completedTasks).toFixed(2)}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div>
+                    <label htmlFor="appReview" className="block text-sm font-medium text-gray-700">App Review</label>
+                    <textarea
+                      id="appReview"
+                      name="appReview"
+                      value={newTask.appReview}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, appReview: e.target.value }))}
+                      rows={3}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="appProfit" className="block text-sm font-medium text-gray-700">App Profit</label>
+                    <input
+                      type="number"
+                      id="appProfit"
+                      name="appProfit"
+                      value={newTask.appProfit}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, appProfit: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="isActive" className="block text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      id="isActive"
+                      name="isActive"
+                      value={newTask.isActive}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="appImage" className="block text-sm font-medium text-gray-700">App Image</label>
+                    <input
+                      type="file"
+                      id="appImage"
+                      name="appImage"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="p-6 text-center text-gray-500">No analytics data available</div>
-              )}
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={createTask}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  >
+                    Create Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Task Modal */}
+        {editModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-gray-900">Edit Task</h3>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <FiX size={24} />
+                  </button>
+                </div>
+                
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label htmlFor="editAppName" className="block text-sm font-medium text-gray-700">App Name</label>
+                    <input
+                      type="text"
+                      id="editAppName"
+                      name="appName"
+                      value={editTask.appName}
+                      onChange={(e) => setEditTask(prev => ({ ...prev, appName: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="editAppReview" className="block text-sm font-medium text-gray-700">App Review</label>
+                    <textarea
+                      id="editAppReview"
+                      name="appReview"
+                      value={editTask.appReview}
+                      onChange={(e) => setEditTask(prev => ({ ...prev, appReview: e.target.value }))}
+                      rows={3}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="editAppProfit" className="block text-sm font-medium text-gray-700">App Profit</label>
+                    <input
+                      type="number"
+                      id="editAppProfit"
+                      name="appProfit"
+                      value={editTask.appProfit}
+                      onChange={(e) => setEditTask(prev => ({ ...prev, appProfit: e.target.value }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="editIsActive" className="block text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      id="editIsActive"
+                      name="isActive"
+                      value={editTask.isActive}
+                      onChange={(e) => setEditTask(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="editAppImage" className="block text-sm font-medium text-gray-700">App Image (Leave empty to keep current)</label>
+                    <input
+                      type="file"
+                      id="editAppImage"
+                      name="appImage"
+                      onChange={handleEditFileChange}
+                      accept="image/*"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={updateTask}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  >
+                    Update Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reset Tasks Modal */}
+        {resetModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {resetTaskData.type === 'all' ? 'Reset All User Tasks' : 'Reset User Tasks'}
+                  </h3>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <FiX size={24} />
+                  </button>
+                </div>
+                
+                <div className="mt-4">
+                  {resetTaskData.type === 'user' && (
+                    <div className="mb-4">
+                      <label htmlFor="resetUserId" className="block text-sm font-medium text-gray-700">User ID</label>
+                      <input
+                        type="text"
+                        id="resetUserId"
+                        name="userId"
+                        value={resetTaskData.userId}
+                        onChange={(e) => setResetTaskData(prev => ({ ...prev, userId: e.target.value }))}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                      />
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-gray-600">
+                    {resetTaskData.type === 'all' 
+                      ? 'This will reset all users\' tasks and clear their daily task counts. Are you sure?'
+                      : 'This will reset the specified user\'s tasks and clear their daily task count. Are you sure?'}
+                  </p>
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={resetTasks}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Confirm Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Task Management Modal */}
+        {userTaskModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl">
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {selectedUserStats ? `User Task Management - ${selectedUserStats.username}` : 'Set User Task Amount'}
+                  </h3>
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <FiX size={24} />
+                  </button>
+                </div>
+                
+                <div className="mt-4">
+                  {!selectedUserStats ? (
+                    <div>
+                      <label htmlFor="userId" className="block text-sm font-medium text-gray-700">User ID</label>
+                      <input
+                        type="text"
+                        id="userId"
+                        name="userId"
+                        value={userTaskData.userId}
+                        onChange={(e) => setUserTaskData(prev => ({ ...prev, userId: e.target.value }))}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="bg-gray-50 p-4 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">User Information</h4>
+                        <div className="space-y-1">
+                          <p className="text-sm"><span className="font-medium">Username:</span> {selectedUserStats.username}</p>
+                          <p className="text-sm"><span className="font-medium">Email:</span> {selectedUserStats.email}</p>
+                          <p className="text-sm"><span className="font-medium">User ID:</span> {selectedUserStats.userId}</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Task Statistics</h4>
+                        <div className="space-y-1">
+                          <p className="text-sm"><span className="font-medium">Daily Completed:</span> {selectedUserStats.dailyTasksCompleted}</p>
+                          <p className="text-sm"><span className="font-medium">Daily Limit:</span> {selectedUserStats.dailyTasksLimit}</p>
+                          <p className="text-sm"><span className="font-medium">Total Completed:</span> {selectedUserStats.totalTasksCompleted}</p>
+                          <p className="text-sm"><span className="font-medium">Last Reset:</span> {formatDate(selectedUserStats.lastTaskReset)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="mb-4">
+                    <label htmlFor="taskAmount" className="block text-sm font-medium text-gray-700">Daily Task Amount</label>
+                    <input
+                      type="number"
+                      id="taskAmount"
+                      name="taskAmount"
+                      value={userTaskData.taskAmount}
+                      onChange={(e) => setUserTaskData(prev => ({ ...prev, taskAmount: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  {selectedUserStats && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">User's Task History</h4>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed At</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {selectedUserTasks.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" className="px-3 py-2 text-center text-sm text-gray-500">No task history found</td>
+                              </tr>
+                            ) : (
+                              selectedUserTasks.map((task) => (
+                                <tr key={task.id}>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {task.task.appName}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(task.status === 'completed')}`}>
+                                      {task.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                    {formatCurrency(task.profit)}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                                    {formatDate(task.completedAt)}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-6 flex justify-between">
+                  <div>
+                    {selectedUserStats && (
+                      <button
+                        onClick={() => openResetModal('user', selectedUserStats.userId)}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <FiRefreshCw className="mr-2" />
+                        Reset User Tasks
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={setUserTaskAmount}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </main>
-
-      {/* Create App Review Modal */}
-      {createModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">Create New App Review</h3>
-                <button
-                  onClick={() => setCreateModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="appName" className="block text-sm font-medium text-gray-700">App Name</label>
-                  <input
-                    type="text"
-                    id="appName"
-                    name="appName"
-                    value={newAppReview.appName}
-                    onChange={(e) => setNewAppReview({...newAppReview, appName: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="appImage" className="block text-sm font-medium text-gray-700">App Image</label>
-                  <div className="mt-1 flex items-center">
-                    <label className="cursor-pointer">
-                      <div className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
-                        <FiUpload className="-ml-1 mr-2 h-5 w-5" />
-                        Upload Image
-                      </div>
-                      <input
-                        type="file"
-                        id="appImage"
-                        name="appImage"
-                        accept="image/*"
-                        onChange={handleCreateImageChange}
-                        className="sr-only"
-                      />
-                    </label>
-                    {createPreview && (
-                      <div className="ml-4 flex-shrink-0">
-                        <img className="h-10 w-10 rounded-md object-cover" src={createPreview} alt="Preview" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="appReview" className="block text-sm font-medium text-gray-700">Review Instructions</label>
-                  <textarea
-                    id="appReview"
-                    name="appReview"
-                    rows={3}
-                    value={newAppReview.appReview}
-                    onChange={(e) => setNewAppReview({...newAppReview, appReview: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="appProfit" className="block text-sm font-medium text-gray-700">Profit per Task ($)</label>
-                  <input
-                    type="number"
-                    id="appProfit"
-                    name="appProfit"
-                    min="0.01"
-                    step="0.01"
-                    value={newAppReview.appProfit}
-                    onChange={(e) => setNewAppReview({...newAppReview, appProfit: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="totalTasks" className="block text-sm font-medium text-gray-700">Total Tasks (0 for unlimited)</label>
-                  <input
-                    type="number"
-                    id="totalTasks"
-                    name="totalTasks"
-                    min="0"
-                    value={newAppReview.totalTasks}
-                    onChange={(e) => setNewAppReview({...newAppReview, totalTasks: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    name="isActive"
-                    checked={newAppReview.isActive}
-                    onChange={(e) => setNewAppReview({...newAppReview, isActive: e.target.checked})}
-                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
-                    Active
-                  </label>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setCreateModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={createAppReview}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit App Review Modal */}
-      {editModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">Edit App Review</h3>
-                <button
-                  onClick={() => setEditModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="editAppName" className="block text-sm font-medium text-gray-700">App Name</label>
-                  <input
-                    type="text"
-                    id="editAppName"
-                    name="appName"
-                    value={editAppReview.appName}
-                    onChange={(e) => setEditAppReview({...editAppReview, appName: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="editAppImage" className="block text-sm font-medium text-gray-700">App Image</label>
-                  <div className="mt-1 flex items-center">
-                    <label className="cursor-pointer">
-                      <div className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
-                        <FiUpload className="-ml-1 mr-2 h-5 w-5" />
-                        Change Image
-                      </div>
-                      <input
-                        type="file"
-                        id="editAppImage"
-                        name="appImage"
-                        accept="image/*"
-                        onChange={handleEditImageChange}
-                        className="sr-only"
-                      />
-                    </label>
-                    {editPreview && (
-                      <div className="ml-4 flex-shrink-0">
-                        <img className="h-10 w-10 rounded-md object-cover" src={editPreview} alt="Preview" />
-                      </div>
-                    )}
-                    <button
-                      onClick={() => {
-                        setEditAppReview({...editAppReview, appImage: null});
-                        setEditPreview(null);
-                      }}
-                      className="ml-2 text-sm text-red-600 hover:text-red-800"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="editAppReview" className="block text-sm font-medium text-gray-700">Review Instructions</label>
-                  <textarea
-                    id="editAppReview"
-                    name="appReview"
-                    rows={3}
-                    value={editAppReview.appReview}
-                    onChange={(e) => setEditAppReview({...editAppReview, appReview: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="editAppProfit" className="block text-sm font-medium text-gray-700">Profit per Task ($)</label>
-                  <input
-                    type="number"
-                    id="editAppProfit"
-                    name="appProfit"
-                    min="0.01"
-                    step="0.01"
-                    value={editAppReview.appProfit}
-                    onChange={(e) => setEditAppReview({...editAppReview, appProfit: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="editTotalTasks" className="block text-sm font-medium text-gray-700">Total Tasks (0 for unlimited)</label>
-                  <input
-                    type="number"
-                    id="editTotalTasks"
-                    name="totalTasks"
-                    min="0"
-                    value={editAppReview.totalTasks}
-                    onChange={(e) => setEditAppReview({...editAppReview, totalTasks: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="editIsActive"
-                    name="isActive"
-                    checked={editAppReview.isActive}
-                    onChange={(e) => setEditAppReview({...editAppReview, isActive: e.target.checked})}
-                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="editIsActive" className="ml-2 block text-sm text-gray-700">
-                    Active
-                  </label>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setEditModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={updateAppReview}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Tasks Modal */}
-      {resetModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {resetOptions.userId ? 'Reset User Tasks' : 'Reset All Tasks'}
-                </h3>
-                <button
-                  onClick={() => setResetModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="resetType" className="block text-sm font-medium text-gray-700">Reset Type</label>
-                  <select
-                    id="resetType"
-                    name="resetType"
-                    value={resetOptions.resetType}
-                    onChange={(e) => setResetOptions({...resetOptions, resetType: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  >
-                    <option value="pending">Pending Tasks Only</option>
-                    <option value="all">All Tasks (Pending & Completed)</option>
-                  </select>
-                </div>
-                
-                {resetOptions.userId && (
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      This will reset tasks for a specific user. To reset all users' tasks, use the "Reset All" button.
-                    </p>
-                  </div>
-                )}
-                
-                {!resetOptions.userId && (
-                  <div>
-                    <p className="text-sm text-red-500 font-medium">
-                      Warning: This will reset tasks for ALL users in the system. This action cannot be undone.
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setResetModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={resetOptions.userId ? resetUserTasks : resetAllTasks}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                >
-                  Confirm Reset
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Set User Task Limit Modal */}
-      {userLimitModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">Set User Daily Task Limit</h3>
-                <button
-                  onClick={() => setUserLimitModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="userId" className="block text-sm font-medium text-gray-700">User ID</label>
-                  <input
-                    type="text"
-                    id="userId"
-                    name="userId"
-                    value={userLimit.userId}
-                    onChange={(e) => setUserLimit({...userLimit, userId: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="dailyTaskLimit" className="block text-sm font-medium text-gray-700">Daily Task Limit</label>
-                  <input
-                    type="number"
-                    id="dailyTaskLimit"
-                    name="dailyTaskLimit"
-                    min="1"
-                    value={userLimit.dailyTaskLimit}
-                    onChange={(e) => setUserLimit({...userLimit, dailyTaskLimit: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setUserLimitModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={updateUserTaskLimit}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Update Limit
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

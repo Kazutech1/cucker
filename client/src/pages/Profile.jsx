@@ -33,6 +33,8 @@ const ProfilePage = () => {
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState('');
   const [eligibleLevel, setEligibleLevel] = useState(0);
+  const [profitBalance, setProfitBalance] = useState(0);
+  
 
   const navigate = useNavigate();
 
@@ -87,7 +89,30 @@ const ProfilePage = () => {
     }
   };
 
+  const fetchProfitBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/withdrawal/info`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch balance');
+      }
+      
+      const data = await response.json();
+      setProfitBalance(data.profitBalance);
+      
+    } catch (error) {
+      console.error('Balance fetch error:', error);
+      setMessage({ text: 'Failed to load balance info', type: 'error' });
+    }
+  };
+
   useEffect(() => {
+    fetchProfitBalance()
     fetchProfile();
   }, []);
 
@@ -190,9 +215,9 @@ const ProfilePage = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-400">
-                {userData.vipLevel.profitPerOrder}%
+{`$${profitBalance.toFixed(2)}`}
               </div>
-              <div className="text-gray-400 text-xs uppercase">Profit Per Order</div>
+              <div className="text-gray-400 text-xs uppercase">Profit Balance</div>
             </div>
           </div>
         </div>

@@ -91,7 +91,9 @@ const Sidebar = ({ isMobileOpen, toggleMobileSidebar }) => {
     { path: '/admin/vip', icon: <FiStar size={20} />, label: 'VIP Levels' },
     { path: '/admin/notifications', icon: <FiBell size={20} />, label: 'Manage Notifications' },
     { path: '/admin/wallets', icon: <FiCreditCard size={20} />, label: 'Manage Wallets' },
-     { path: '/admin/tasks', icon: <FiCreditCard size={20} />, label: 'Manage Tasks' },
+     { path: '/admin/atasks', icon: <FiCreditCard size={20} />, label: 'Manage Tasks' },
+          { path: '/admin/manage', icon: <FiCreditCard size={20} />, label: 'Manage Users' },
+
   ];
 
   return (
