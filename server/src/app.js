@@ -46,7 +46,7 @@ if (!fs.existsSync(uploadsDir)) {
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vip", vipRoutes);
-app.use("/api/earnings", earningsRouter);
+app.use("/api/tasks", earningsRouter);
 app.use("/api/investments", investmentsRouter);
 app.use("/api/withdrawal", withdrawalRouter);
 app.use("/api/deposit", depositRouter);

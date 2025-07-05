@@ -815,3 +815,446 @@ export const deleteVipLevel = async (req, res) => {
     });
   }
 };
+
+
+
+export const createTask = async (req, res) => {
+  try {
+    const { appName, appImage, appReview, appProfit } = req.body;
+
+    const task = await prisma.task.create({
+      data: {
+        appName,
+        appImage,
+        appReview,
+        appProfit,
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Task created successfully",
+      task
+    });
+  } catch (error) {
+    console.error("Create task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to create task",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Admin: Get all tasks
+export const getAllTasks = async (req, res) => {
+  try {
+    const tasks = await prisma.task.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      tasks
+    });
+  } catch (error) {
+    console.error("Get tasks error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get tasks"
+    });
+  }
+};
+
+// Admin: Update task
+export const updateTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { appName, appImage, appReview, appProfit, isActive } = req.body;
+
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        appName,
+        appImage,
+        appReview,
+        appProfit,
+        isActive
+      }
+    });
+
+    res.json({
+      success: true,
+      message: "Task updated successfully",
+      task: updatedTask
+    });
+  } catch (error) {
+    console.error("Update task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to update task"
+    });
+  }
+};
+
+// Admin: Delete task
+export const deleteTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    await prisma.$transaction([
+      prisma.taskAssignment.deleteMany({
+        where: { taskId }
+      }),
+      prisma.task.delete({
+        where: { id: taskId }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      message: "Task deleted successfully"
+    });
+  } catch (error) {
+    console.error("Delete task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to delete task"
+    });
+  }
+};
+
+
+export const assignTaskToUser = async (req, res) => {
+  try {
+    const { userId, taskId } = req.body;
+
+    // Check if user exists and is not VIP 0
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { 
+        profile: { 
+          include: { vipLevelData: true } 
+        } 
+      }
+    });
+
+    if (!user || user.profile.vipLevel === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found or is VIP level 0"
+      });
+    }
+
+    // Check if task exists and is active
+    const task = await prisma.task.findUnique({
+      where: { id: taskId, isActive: true }
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found or inactive"
+      });
+    }
+
+    // Check if user has reached daily task limit
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const tasksToday = await prisma.taskAssignment.count({
+      where: {
+        userId,
+        createdAt: { gte: todayStart }
+      }
+    });
+
+    if (tasksToday >= user.profile.dailyTasksLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `User has reached daily task limit of ${user.profile.dailyTasksLimit}`
+      });
+    }
+
+    // Create new assignment (even if user already has this task)
+    const assignment = await prisma.taskAssignment.create({
+      data: {
+        taskId,
+        userId
+      },
+      include: {
+        task: true,
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: "Task assigned successfully",
+      assignment
+    });
+  } catch (error) {
+    console.error("Assign task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to assign task",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+
+
+// Admin: Remove task from user
+export const removeTaskFromUser = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    const assignment = await prisma.taskAssignment.delete({
+      where: { id: assignmentId }
+    });
+
+    res.json({
+      success: true,
+      message: "Task removed from user successfully"
+    });
+  } catch (error) {
+    console.error("Remove task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to remove task from user"
+    });
+  }
+};
+
+// Admin: Get all task assignments
+export const getAllTaskAssignments = async (req, res) => {
+  try {
+    const { userId, taskId, status } = req.query;
+
+    const assignments = await prisma.taskAssignment.findMany({
+      where: {
+        userId: userId || undefined,
+        taskId: taskId || undefined,
+        isCompleted: status === 'completed' ? true : 
+                   status === 'pending' ? false : undefined
+      },
+      include: {
+        task: true,
+        user: {
+          include: {
+            profile: {
+              include: {
+                vipLevelData: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      assignments
+    });
+  } catch (error) {
+    console.error("Get task assignments error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get task assignments"
+    });
+  }
+};
+
+// Admin: Get task statistics
+export const getTaskStatistics = async (req, res) => {
+  try {
+    // Total tasks stats
+    const totalTasks = await prisma.task.count();
+    const activeTasks = await prisma.task.count({ where: { isActive: true } });
+    
+    // Completion stats
+    const totalAssignments = await prisma.taskAssignment.count();
+    const completedAssignments = await prisma.taskAssignment.count({ 
+      where: { isCompleted: true } 
+    });
+    
+    // Recent completions
+    const recentCompletions = await prisma.taskHistory.findMany({
+      take: 10,
+      orderBy: { completedAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            username: true,
+            email: true
+          }
+        },
+        task: {
+          select: {
+            appName: true
+          }
+        }
+      }
+    });
+
+    // Top performing tasks
+    const topTasks = await prisma.taskHistory.groupBy({
+      by: ['taskId', 'taskName'],
+      _count: { taskId: true },
+      _sum: { profitEarned: true },
+      orderBy: { _count: { taskId: 'desc' } },
+      take: 5
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalTasks,
+        activeTasks,
+        totalAssignments,
+        completedAssignments,
+        completionRate: totalAssignments > 0 ? 
+          (completedAssignments / totalAssignments * 100).toFixed(2) : 0,
+        recentCompletions,
+        topTasks
+      }
+    });
+  } catch (error) {
+    console.error("Get task statistics error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get task statistics"
+    });
+  }
+};
+
+
+
+export const getAdminDashboardStats = async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      totalTasks,
+      totalEarnings,
+      recentTaskCompletions,
+      userSignups
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({
+        where: {
+          lastLogin: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+          }
+        }
+      }),
+      prisma.task.count(),
+      prisma.taskHistory.aggregate({
+        _sum: { profitEarned: true }
+      }),
+      prisma.taskHistory.findMany({
+        take: 5,
+        orderBy: { completedAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              username: true
+            }
+          },
+          task: {
+            select: {
+              appName: true
+            }
+          }
+        }
+      }),
+      prisma.user.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          createdAt: true
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          signups: userSignups
+        },
+        tasks: {
+          total: totalTasks,
+          totalEarnings: totalEarnings._sum.profitEarned || 0,
+          recentCompletions: recentTaskCompletions
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Get admin dashboard stats error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get dashboard stats"
+    });
+  }
+};
+
+
+// Admin: Update user's daily task limit
+export const updateUserTaskLimit = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { dailyTasksLimit } = req.body;
+
+    // Validate the new limit
+    if (typeof dailyTasksLimit !== 'number' || dailyTasksLimit < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Daily task limit must be a positive number"
+      });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Update the task limit
+    const updatedProfile = await prisma.profile.update({
+      where: { userId },
+      data: { dailyTasksLimit }
+    });
+
+    res.json({
+      success: true,
+      message: "User's daily task limit updated successfully",
+      profile: updatedProfile
+    });
+  } catch (error) {
+    console.error("Update user task limit error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to update user's task limit",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

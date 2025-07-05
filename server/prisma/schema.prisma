@@ -13,23 +13,26 @@ model User {
   email        String   @unique
   fullName     String
   username     String   @unique
-  phoneNumber  String?   @unique  // New phone number field
+  phoneNumber  String?   @unique
   password     String
   referralCode String   @unique
   referredBy   String?
   role         String   @default("user") // 'user' or 'admin'
   balance      Float    @default(0)
   profitBalance Float   @default(0)
-  withdrawalAddress String?   // New field for crypto address
-  profilePicture String?      // New field for profile picture URL
+  withdrawalAddress String?
+  profilePicture String?
   lastProfitCalc DateTime?
+  lastLogin    DateTime?  // Add this new field
   createdAt    DateTime @default(now())
 
   // Relations
   profile     Profile?
   withdrawal Withdrawal[]
   deposit    Deposit[]
-  appReviewTasks AppReviewTask[]
+  taskHistory  TaskHistory[]
+  // userTasks   UserTask[]
+  taskAssignments TaskAssignment[]
 }
 
 model VipLevel {
@@ -76,9 +79,9 @@ model Profile {
   userId        String   @unique
   vipLevel      Int?      @default(0)
   totalInvested Float    @default(0)
-  dailyTasksCompleted Int @default(0)
-  dailyTasksLimit Int    @default(5)  // ADD THIS LINE
-  lastTaskReset DateTime?
+   dailyTasksCompleted Int    @default(0)
+  dailyTasksLimit     Int    @default(5)
+  lastTaskReset       DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -91,8 +94,8 @@ model Deposit {
   id          String   @id @default(uuid())
   userId      String
   amount      Float
-  txHash      String?  // Transaction hash
-  proofImage   String?  // URL to uploaded image
+  txHash      String?
+  proofImage   String?
   status      String   @default("pending") // pending/verified/rejected
   createdAt   DateTime @default(now())
   verifiedAt  DateTime?
@@ -118,34 +121,98 @@ model Notification {
   createdAt   DateTime @default(now())
 }
 
-// New models for app review system
-model AppReview {
-  id            String   @id @default(uuid())
-  appName       String
-  appImage      String   // URL to app image
-  appReview     String   // Review description/instructions
-  appProfit     Float    // Profit amount for completing this task
-  isActive      Boolean  @default(true)
-  totalTasks    Int      @default(0) // Total tasks admin wants to distribute
-  completedTasks Int     @default(0) // Tasks completed by users
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+// NEW TASK SYSTEM MODELS
 
-  // Relations
-  tasks AppReviewTask[]
+// model Task {
+//   id          String   @id @default(uuid())
+//   appName     String
+//   appImage    String   // URL to app image
+//   appReview   String
+//   appProfit   Float
+//   isActive    Boolean  @default(true)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+
+//   // Relations
+//   taskAssignments TaskAssignment[]
+//   userTasks       UserTask[]
+// }
+
+// model TaskAssignment {
+//   id          String   @id @default(uuid())
+//   userId      String
+//   taskId      String
+//   assignedAt  DateTime @default(now())
+//   expiresAt   DateTime
+//   isCompleted Boolean  @default(false)
+//   completedAt DateTime?
+
+//   // Relations
+//   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+//   @@unique([userId, taskId])
+// }
+
+// model UserTask {
+//   id          String   @id @default(uuid())
+//   userId      String
+//   taskId      String
+//   status      String   @default("pending") // pending, completed
+//   completedAt DateTime?
+//   profit      Float
+//   createdAt   DateTime @default(now())
+
+//   // Relations
+//   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+// }
+
+// model TaskSettings {
+//   id              String   @id @default(uuid())
+//   dailyTaskLimit  Int      @default(5)
+//   resetHours      Int      @default(24)
+//   createdAt       DateTime @default(now())
+//   updatedAt       DateTime @updatedAt
+// }
+
+model Task {
+  id          String    @id @default(uuid())
+  appName     String
+  appImage    String
+  appReview   String
+  appProfit   Float
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  assignments TaskAssignment[]
+  taskHistory  TaskHistory[]
 }
 
-model AppReviewTask {
-  id            String   @id @default(uuid())
-  userId        String
-  appReviewId   String
-  status        String   @default("pending") // pending, completed
-  completedAt   DateTime?
-  createdAt     DateTime @default(now())
+model TaskAssignment {
+  id          String   @id @default(uuid())
+  taskId      String
+  userId      String
+  profitEarned Float?  // Track actual profit earned (in case appProfit changes)
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  
+  task        Task     @relation(fields: [taskId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // @@unique([taskId, userId])
+}
 
-  // Relations
-  user      User      @relation(fields: [userId], references: [id])
-  appReview AppReview @relation(fields: [appReviewId], references: [id])
 
-  @@unique([userId, appReviewId]) // Prevent duplicate tasks for same user
+model TaskHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  taskId      String
+  taskName    String   // Snapshot of task name at completion
+  profitEarned Float
+  completedAt DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id])
+  task        Task?    @relation(fields: [taskId], references: [id])
 }

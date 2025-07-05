@@ -1,173 +1,340 @@
-// earningsController.js
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-const VIP_LEVELS = [
-  { level: 0, minBalance: 0, roi: 0 },
-  { level: 1, minBalance: 50, roi: 0.5 },    // 0.5% daily
-  { level: 2, minBalance: 1000, roi: 0.6 },  // 0.6% daily
-  { level: 3, minBalance: 4000, roi: 0.9 },  // 0.9% daily
-  { level: 4, minBalance: 10000, roi: 1.2 }  // 1.2% daily
-];
+// Helper to reset daily tasks if needed
+const resetDailyTasksIfNeeded = async (userId) => {
+  const profile = await prisma.profile.findUnique({
+    where: { userId }
+  });
 
-export const calculateDailyProfit = async (req, res) => {
+  if (!profile) return;
+
+  const now = new Date();
+  const lastReset = profile.lastTaskReset || new Date(0);
+  const shouldReset = lastReset.getDate() !== now.getDate() || 
+                     lastReset.getMonth() !== now.getMonth() || 
+                     lastReset.getFullYear() !== now.getFullYear();
+
+  if (shouldReset) {
+    await prisma.profile.update({
+      where: { userId },
+      data: {
+        dailyTasksCompleted: 0,
+        lastTaskReset: now
+      }
+    });
+  }
+};
+
+// Get user's available tasks
+export const getUserTasks = async (req, res) => {
   try {
     const userId = req.user.id;
-    const now = new Date();
-
-    // Get user with current balance
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { profile: true }
+    
+    // Check VIP level - no tasks for VIP 0
+    const profile = await prisma.profile.findUnique({
+      where: { userId },
+      include: { vipLevelData: true }
     });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    if (!profile || profile.vipLevel === 0) {
+      return res.json({
+        success: true,
+        tasks: [],
+        message: "No tasks available for your VIP level"
+      });
     }
 
-    // Check 24-hour cooldown
-    if (user.lastProfitCalc) {
-      const lastCalcTime = new Date(user.lastProfitCalc).getTime();
-      const currentTime = now.getTime();
-      const timeDiff = currentTime - lastCalcTime;
-      
-      if (timeDiff < 24 * 60 * 60 * 1000) {
-        const nextAvailableTime = lastCalcTime + 24 * 60 * 60 * 1000;
-        const hoursLeft = Math.ceil((nextAvailableTime - currentTime) / (60 * 60 * 1000));
-        
-        return res.status(400).json({
-          success: false,
-          message: `Please wait 24 hours between profit claims. ${hoursLeft} hours remaining.`,
-          nextAvailable: new Date(nextAvailableTime),
-          hoursRemaining: hoursLeft,
-          lastClaimed: user.lastProfitCalc
-        });
+    // Reset daily tasks if needed
+    await resetDailyTasksIfNeeded(userId);
+
+    // Get current assignments
+    const currentAssignments = await prisma.taskAssignment.findMany({
+      where: {
+        userId,
+        isCompleted: false
+      },
+      include: {
+        task: true
       }
+    });
+
+    // If user has reached daily limit
+    if (currentAssignments.length >= profile.dailyTasksLimit) {
+      return res.json({
+        success: true,
+        tasks: currentAssignments.map(a => a.task),
+        message: "You've reached your daily task limit"
+      });
     }
 
-    // Determine VIP level based on current balance (highest level where balance >= minBalance)
-    let vipLevel = 0;
-    for (let i = VIP_LEVELS.length - 1; i >= 0; i--) {
-      if (user.balance >= VIP_LEVELS[i].minBalance) {
-        vipLevel = VIP_LEVELS[i].level;
-        break;
-      }
-    }
-
-    // Get the ROI for the determined VIP level
-    const currentVip = VIP_LEVELS.find(level => level.level === vipLevel);
-    if (!currentVip) {
-      return res.status(500).json({ message: "Invalid VIP level configuration" });
-    }
-
-    // Calculate daily profit (ROI is percentage, so divide by 100)
-    const dailyProfit = user.balance * (currentVip.roi / 100);
-
-    // Update user records
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        profitBalance: { increment: dailyProfit },
-        lastProfitCalc: now,
-        profile: {
-          update: {
-            vipLevel: vipLevel
+    // Get all active tasks user hasn't completed today
+    const availableTasks = await prisma.task.findMany({
+      where: {
+        isActive: true,
+        NOT: {
+          assignments: {
+            some: {
+              userId,
+              createdAt: {
+                gte: new Date(new Date().setHours(0, 0, 0, 0))
+              }
+            }
           }
         }
       },
-      include: { profile: true }
+      orderBy: { createdAt: 'desc' }
     });
 
-    // Record the earnings history
-    await prisma.earningsHistory.create({
-      data: {
-        userId: userId,
-        amount: dailyProfit,
-        date: now
-      }
-    });
+    // Randomly select tasks to assign (up to daily limit)
+    const tasksToAssign = availableTasks
+      .sort(() => 0.5 - Math.random())
+      .slice(0, profile.dailyTasksLimit - currentAssignments.length);
+
+    // Create new assignments
+    const newAssignments = await Promise.all(
+      tasksToAssign.map(task => 
+        prisma.taskAssignment.create({
+          data: {
+            taskId: task.id,
+            userId
+          },
+          include: {
+            task: true
+          }
+        })
+      )
+    );
+
+    // Combine existing and new assignments
+    const allTasks = [
+      ...currentAssignments.map(a => a.task),
+      ...newAssignments.map(a => a.task)
+    ];
 
     res.json({
       success: true,
-      message: "Daily profit calculated successfully",
-      vipLevel: vipLevel,
-      dailyProfit: dailyProfit,
-      newProfitBalance: updatedUser.profitBalance,
-      nextAvailable: new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      tasks: allTasks,
+      remainingTasks: profile.dailyTasksLimit - allTasks.length
     });
-
   } catch (error) {
-    console.error("Profit calculation error:", error);
+    console.error("Get user tasks error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Failed to calculate profit",
-      error: error.message 
+      message: "Failed to get tasks"
     });
   }
 };
 
-// Add a new function to get earnings info without calculating
-export const getDailyEarningsInfo = async (req, res) => {
+// Complete a task
+export const completeTask = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { taskId } = req.body;
 
-    // Get user with current balance
+    // Verify task assignment exists and isn't completed
+    const assignment = await prisma.taskAssignment.findFirst({
+      where: {
+        taskId,
+        userId,
+        isCompleted: false
+      },
+      include: {
+        task: true
+      }
+    });
+
+    if (!assignment) {
+      return res.status(400).json({
+        success: false,
+        message: "Task not found or already completed"
+      });
+    }
+
+    // Update profile and complete task in transaction
+const [updatedProfile, completedAssignment, historyRecord] = await prisma.$transaction([
+      prisma.profile.update({
+        where: { userId },
+        data: {
+          dailyTasksCompleted: { increment: 1 }
+        }
+      }),
+      prisma.taskAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          isCompleted: true,
+          completedAt: new Date()
+        },
+        include: {
+          task: true
+        }
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          profitBalance: { increment: assignment.task.appProfit }
+        }
+      }),
+       prisma.taskHistory.create({
+    data: {
+      userId,
+      taskId,
+      taskName: assignment.task.appName,
+      profitEarned: assignment.task.appProfit
+    }
+  })
+    ]);
+
+    res.json({
+      success: true,
+      message: "Task completed successfully",
+      profitEarned: assignment.task.appProfit,
+      tasksRemaining: updatedProfile.dailyTasksLimit - updatedProfile.dailyTasksCompleted
+    });
+  } catch (error) {
+    console.error("Complete task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to complete task"
+    });
+  }
+};
+
+
+
+// Admin: Get user's task history
+export const getUserTaskHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit, page = 1 } = req.query;
+    const perPage = limit ? parseInt(limit) : 20;
+    const skip = (page - 1) * perPage;
+
+    // Verify user exists
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    });
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const [history, total] = await Promise.all([
+      prisma.taskHistory.findMany({
+        where: { userId },
+        include: {
+          task: {
+            select: {
+              appImage: true
+            }
+          }
+        },
+        orderBy: { completedAt: 'desc' },
+        skip,
+        take: perPage
+      }),
+      prisma.taskHistory.count({
+        where: { userId }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      history,
+      pagination: {
+        total,
+        pages: Math.ceil(total / perPage),
+        currentPage: parseInt(page),
+        perPage
+      }
+    });
+  } catch (error) {
+    console.error("Get user task history error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get task history"
+    });
+  }
+};
+
+// Admin: Get user task statistics
+export const getUserTaskStats = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get user profile with VIP info
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true }
+      include: {
+        profile: {
+          include: {
+            vipLevelData: true
+          }
+        }
+      }
     });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
-    // Determine VIP level based on current balance
-    let vipLevel = 0;
-    for (let i = VIP_LEVELS.length - 1; i >= 0; i--) {
-      if (user.balance >= VIP_LEVELS[i].minBalance) {
-        vipLevel = VIP_LEVELS[i].level;
-        break;
-      }
-    }
+    // Calculate time until reset
+    const now = new Date();
+    const resetTime = new Date(now);
+    resetTime.setHours(24, 0, 0, 0); // Next midnight
+    const timeUntilReset = resetTime - now;
 
-    const currentVip = VIP_LEVELS.find(level => level.level === vipLevel);
-    const potentialDailyProfit = user.balance * (currentVip.roi / 100);
-
-    // Check if user can claim profit
-    let canClaim = true;
-    let nextAvailable = null;
-
-    if (user.lastProfitCalc) {
-      const lastCalcTime = new Date(user.lastProfitCalc).getTime();
-      const currentTime = new Date().getTime();
-      const timeDiff = currentTime - lastCalcTime;
-      
-      if (timeDiff < 24 * 60 * 60 * 1000) {
-        canClaim = false;
-        nextAvailable = new Date(lastCalcTime + 24 * 60 * 60 * 1000);
-      }
-    }
+    // Get task stats
+    const [completedToday, pendingTasks, totalEarned] = await Promise.all([
+      prisma.taskHistory.count({
+        where: {
+          userId,
+          completedAt: {
+            gte: new Date(now.setHours(0, 0, 0, 0))
+          }
+        }
+      }),
+      prisma.taskAssignment.count({
+        where: {
+          userId,
+          isCompleted: false
+        }
+      }),
+      prisma.taskHistory.aggregate({
+        where: { userId },
+        _sum: { profitEarned: true }
+      })
+    ]);
 
     res.json({
       success: true,
-      vipLevel: vipLevel,
-      currentBalance: user.balance,
-      profitBalance: user.profitBalance,
-      potentialDailyProfit: potentialDailyProfit,
-      canClaim: canClaim,
-      nextAvailable: nextAvailable,
-      lastProfitCalc: user.lastProfitCalc
+      stats: {
+        user: {
+          username: user.username,
+          email: user.email,
+          vipLevel: user.profile.vipLevelData?.level || 0
+        },
+        tasks: {
+          dailyLimit: user.profile.dailyTasksLimit,
+          completedToday,
+          pendingTasks,
+          timeUntilReset, // in milliseconds
+          totalEarned: totalEarned._sum.profitEarned || 0
+        }
+      }
     });
-
   } catch (error) {
-    console.error("Get earnings info error:", error);
+    console.error("Get user task stats error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Failed to get earnings info",
-      error: error.message 
+      message: "Failed to get user task stats"
     });
   }
 };
-
-
-

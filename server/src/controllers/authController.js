@@ -206,6 +206,12 @@ export const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Update last login time
+await prisma.user.update({
+  where: { id: user.id },
+  data: { lastLogin: new Date() }
+});
+
     res.json({
       message: "Login successful",
       token,

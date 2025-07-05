@@ -23,10 +23,21 @@ import {
   createVipLevel,
   updateVipLevelDetails,
   deleteVipLevel,
+  createTask,
+  getAllTasks,
+  updateTask,
+  deleteTask,
+  assignTaskToUser,
+  removeTaskFromUser,
+  getAllTaskAssignments,
+  getTaskStatistics,
+  getAdminDashboardStats,
+  updateUserTaskLimit,
 } from './userController.js';
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
-import { createAppReview, deleteAppReview, getAppReviews, getTaskAnalytics, getUsersWithPendingTasks, resetAllUserTasks, resetUserTasks, updateAppReview, updateUserTaskLimit } from './taskController.js';
+// import { createTask, deleteTask, getAllTasks, getAllUsersTaskStats, getUserTaskHistorys, resetAllUserTasks, resetUserTasks, setUserTaskAmount, updateTask } from './taskController.js';
+// import { createAppReview, createTask, deleteAppReview, deleteTask, getAllTasks, getAppReviews, getTaskAnalytics, getTaskSettings, getUsersWithPendingTasks, getUserTaskStats, resetAllUserTasks, resetUserTasks, setUserTaskLimit, updateAppReview, updateTask, updateTaskSettings, updateUserTaskLimit } from './taskController.js';
 
 const router = express.Router();
 
@@ -72,20 +83,52 @@ router.get('/notifications', getNotifications);
 router.delete('/notifications/:notificationId', deleteNotification);
 
 
-router.post('/reviews',  createAppReview);
-router.get('/reviews', getAppReviews);
-router.put('/reviews/:appReviewId',  updateAppReview);
-router.delete('/reviews/:appReviewId',  deleteAppReview);
+// router.post('/reviews',  createAppReview);
+// router.get('/reviews', getAppReviews);
+// router.put('/reviews/:appReviewId',  updateAppReview);
+// router.delete('/reviews/:appReviewId',  deleteAppReview);
 
-// Admin Analytics
-router.get('/analytics', getTaskAnalytics);
+// // Admin Analytics
+// router.get('/analytics', getTaskAnalytics);
 
-// Admin Reset Functions
-router.post('/tasks/reset-all',  resetAllUserTasks);
-router.post('/tasks/reset-user/:userId',  resetUserTasks);
-router.get('/pending', getUsersWithPendingTasks);
+// // Admin Reset Functions
+// router.post('/tasks/reset-all',  resetAllUserTasks);
+// router.post('/tasks/reset-user/:userId',  resetUserTasks);
+// router.get('/pending', getUsersWithPendingTasks);
 
-// Admin User Management
-router.put('/limit',  updateUserTaskLimit);
+// // Admin User Management
+// router.put('/limit',  updateUserTaskLimit);
+
+
+
+// Create new task
+// router.post('/create',  createTask);
+// router.get('/all',  getAllTasks);
+// router.put('/update/:taskId',  updateTask);
+// router.delete('/delete/:taskId',  deleteTask);
+
+// // Admin user task management
+// router.post('/reset-all-users',  resetAllUserTasks);
+// router.post('/reset-user/:userId',  resetUserTasks);
+// router.put('/set-user-tasks/:userId',  setUserTaskAmount);
+
+// // Admin task history and stats
+// router.get('/user-history/:userId',  getUserTaskHistorys);
+// router.get('/users-stats',  getAllUsersTaskStats);
+
+
+
+router.post('/tasks', createTask);
+router.get('/tasks', getAllTasks);
+router.put('/tasks/:taskId', updateTask); 
+router.delete('/tasks/:taskId', deleteTask); 
+router.post('/tasks/assign', assignTaskToUser);
+router.delete('/tasks/assign/:assignmentId', removeTaskFromUser);
+router.get('/tasks/assignments', getAllTaskAssignments);
+router.get('/tasks/stats', getTaskStatistics);
+router.get('/tasks/dashboard', getAdminDashboardStats);
+router.put('/tasks/:userId/task-limit', updateUserTaskLimit)
+
+
 
 export default router;
