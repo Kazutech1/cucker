@@ -1,42 +1,33 @@
 import React, { useState, useEffect } from 'react';
+import { FaHistory, FaCoins, FaTrophy } from 'react-icons/fa';
 import { 
-  FiHome, 
-  FiTrendingUp, 
-  FiAward, 
-  FiUser, 
-  FiMenu, 
-  FiX,
-  FiDollarSign,
-  FiClock,
-  FiCheck,
-  FiArrowUp,
-  FiArrowDown,
-  FiRefreshCw,
-  FiPlus
+  FiRefreshCw, FiLayers, FiAlertCircle, FiCheck, 
+  FiX, FiClock, FiDollarSign, FiZap 
 } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import Confetti from 'react-confetti';
 import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
-import LoadingSpinner from '../components/Spinner';
-import TaskPopup from '../components/TaskPopup';
-import { useNavigate } from 'react-router-dom';
+
 
 const Dashboard = () => {
+  const [tasks, setTasks] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userData, setUserData] = useState(null);
   const [profitBalance, setProfitBalance] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [taskHistory, setTaskHistory] = useState([]);
   const [currentTask, setCurrentTask] = useState(null);
-  const [showTaskPopup, setShowTaskPopup] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
-  const [taskStats, setTaskStats] = useState({
-    dailyCompleted: 0,
-    dailyLimit: 5,
-    remaining: 5
-  });
-  const [availableTasks, setAvailableTasks] = useState([]);
-  const [completedTaskIds, setCompletedTaskIds] = useState([]);
-  
+  const [depositAmount, setDepositAmount] = useState('');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [taskCompleted, setTaskCompleted] = useState(false);
+  const [profitEarned, setProfitEarned] = useState(0);
   const navigate = useNavigate();
 
   const toggleSidebar = () => {
@@ -126,168 +117,418 @@ const Dashboard = () => {
     }
   };
 
-  const fetchUserTasks = async () => {
+  // Fetch user tasks
+  const fetchTasks = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tasks`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tasks');
-      }
-
+      
+      if (!response.ok) throw new Error('Failed to fetch tasks');
+      
       const data = await response.json();
-      console.log(data);
-      
-      
-      // Update available tasks
-      setAvailableTasks(data.tasks || []);
-      
-      // Update task stats from profile
-      if (userData) {
-        setTaskStats({
-          dailyCompleted: userData.dailyTasksCompleted || 0,
-          dailyLimit: userData.dailyTasksLimit || 5,
-          remaining: (userData.dailyTasksLimit || 5) - (userData.dailyTasksCompleted || 0)
-        });
-      }
-
-      return data;
+      setTasks(data.tasks);
     } catch (error) {
-      console.error('Task fetch error:', error);
-      setMessage({ text: error.message || 'Failed to load tasks', type: 'error' });
-      return { tasks: [] };
-    }
-  };
-
-  const getNewTask = async () => {
-    try {
-      setLoading(true);
-      
-      // Check if user can get more tasks
-      if (taskStats.remaining <= 0) {
-        setMessage({ text: "You've reached your daily task limit", type: 'error' });
-        return;
-      }
-
-      // Get user's tasks
-      const { tasks } = await fetchUserTasks();
-      
-      if (tasks.length === 0) {
-        setMessage({ 
-          text: "No available tasks at the moment", 
-          type: 'info' 
-        });
-        return;
-      }
-
-      // Select a random task from available tasks
-      const randomIndex = Math.floor(Math.random() * tasks.length);
-      setCurrentTask(tasks[randomIndex]);
-      setShowTaskPopup(true);
-
-    } catch (error) {
-      console.error('Task error:', error);
-      setMessage({ text: error.message || 'Failed to get task', type: 'error' });
+      setMessage({ text: error.message, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const completeTask = async () => {
+  // Fetch task history
+  const fetchTaskHistory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tasks/history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch task history');
+      
+      const data = await response.json();
+      setTaskHistory(data.history);
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  // Get a random task
+  const getRandomTask = () => {
+    if (tasks.length === 0) {
+      setMessage({ text: 'No tasks available', type: 'error' });
+      return;
+    }
+    
+    const randomIndex = Math.floor(Math.random() * tasks.length);
+    const task = tasks[randomIndex];
+    setCurrentTask(task);
+    setShowTaskModal(true);
+    setTaskCompleted(false);
+  };
+
+  // Complete task
+  const handleCompleteTask = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      console.log(currentTask);
       
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/tasks/complete`, 
-        {
-          method: 'POST',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            taskId: currentTask.id
-          })
-        }
-      );
-
+      // If task requires deposit, show deposit modal
+      if (currentTask.depositAmount > 0) {
+        setShowTaskModal(false);
+        setShowDepositModal(true);
+        return;
+      }
+      
+      // Complete normal task
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tasks/${currentTask.userTaskId}/complete`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ depositAmount: null })
+      });
+      
       const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to complete task');
-      }
-
-      // Add to completed tasks list for this session
-      setCompletedTaskIds(prev => [...prev, currentTask.id]);
+      if (!response.ok) throw new Error(data.error || 'Failed to complete task');
       
-      setMessage({ 
-        text: `Task completed! +${formatCurrency(currentTask.appProfit)}`, 
-        type: 'success' 
-      });
-      setShowTaskPopup(false);
-      setCurrentTask(null);
-
-      // Refresh data
-      await Promise.all([
-        fetchUserProfile(),
-        fetchProfitBalance(),
-        fetchUserTasks()
-      ]);
-
+      setProfitEarned(currentTask.profit);
+      setTaskCompleted(true);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+      
+      setMessage({ text: 'Task completed successfully!', type: 'success' });
+      setShowTaskModal(false);
+      setTimeout(() => setShowSuccessModal(true), 300);
+      fetchTasks();
+      fetchTaskHistory();
+      
     } catch (error) {
-      console.error('Completion error:', error);
-      setMessage({ text: error.message || 'Failed to complete task', type: 'error' });
+      setMessage({ text: error.message, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
-
-    const initDashboard = async () => {
-      try {
-        setLoading(true);
-        await Promise.all([
-          fetchUserProfile(),
-          fetchProfitBalance(),
-          fetchUserTasks()
-        ]);
-      } catch (error) {
-        console.error('Dashboard initialization error:', error);
-        setMessage({ text: 'Failed to initialize dashboard', type: 'error' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initDashboard();
-  }, [navigate]);
-
-  // Update task stats when user data changes
-  useEffect(() => {
-    if (userData) {
-      setTaskStats({
-        dailyCompleted: userData.dailyTasksCompleted || 0,
-        dailyLimit: userData.dailyTasksLimit || 5,
-        remaining: (userData.dailyTasksLimit || 5) - (userData.dailyTasksCompleted || 0)
+  // Submit deposit for force task
+  const handleSubmitDeposit = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tasks/${currentTask.userTaskId}/complete`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ depositAmount: parseFloat(depositAmount) })
       });
+      
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error || 'Failed to submit deposit');
+      
+      setProfitEarned(currentTask.profit);
+      setTaskCompleted(true);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+      
+      setMessage({ text: data.message || 'Task submitted for verification', type: 'success' });
+      setShowDepositModal(false);
+      setTimeout(() => setShowSuccessModal(true), 300);
+      fetchTasks();
+      
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setLoading(false);
     }
-  }, [userData]);
+  };
+
+  // Navigate to deposit page
+  const goToDeposit = () => {
+    setShowDepositModal(false);
+    navigate('/deposit');
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+    fetchProfitBalance();
+    fetchTasks();
+    fetchTaskHistory();
+  }, []);
+
+  // Task Modal Component
+  const TaskModal = ({ task, onClose, onComplete }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-md w-full border-2 border-teal-400/30 shadow-lg shadow-teal-400/10 animate-pop-in">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-2xl font-extrabold bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent">
+            {task.appName}
+          </h3>
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-white transition-colors transform hover:rotate-90 duration-200"
+          >
+            <FiX size={24} />
+          </button>
+        </div>
+        
+        <div className="mb-6">
+          <div className="flex flex-col items-center gap-4 mb-4">
+            {task.appImage && (
+              <img 
+                src={task.appImage} 
+                alt={task.appName} 
+                className="w-24 h-24 object-cover rounded-xl border-2 border-teal-400/30 shadow-md animate-float"
+              />
+            )}
+            <div className="text-center">
+              <p className="text-gray-300 text-lg mb-4">{task.appReview}</p>
+              <div className="bg-gray-800/50 rounded-xl p-4 border border-teal-400/20">
+                <p className="text-3xl font-bold text-teal-400 animate-pulse">
+                  ${task.profit.toFixed(2)}
+                </p>
+                <p className="text-sm text-teal-200">REWARD</p>
+              </div>
+              {task.depositAmount > 0 && (
+                <div className="mt-4 bg-yellow-900/20 rounded-lg p-3 border border-yellow-400/30">
+                  <p className="text-yellow-400 font-bold flex items-center justify-center gap-2">
+                    <FiAlertCircle size={18} />
+                    Requires deposit: ${task.depositAmount.toFixed(2)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 border-2 border-gray-600 rounded-xl hover:bg-gray-700 transition-all transform hover:scale-105 font-bold"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onComplete}
+            disabled={loading}
+            className="px-6 py-3 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-xl font-extrabold flex items-center gap-2 hover:from-teal-600 hover:to-blue-700 disabled:opacity-50 transition-all transform hover:scale-105 shadow-lg shadow-teal-500/20"
+          >
+            {loading ? (
+              <FiRefreshCw className="animate-spin" />
+            ) : (
+              <>
+                <FiZap className="animate-pulse" /> COMPLETE TASK
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Deposit Modal Component
+  const DepositModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-md w-full border-2 border-yellow-400/30 shadow-lg shadow-yellow-400/10 animate-pop-in">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-2xl font-extrabold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+            DEPOSIT REQUIRED
+          </h3>
+          <button 
+            onClick={() => setShowDepositModal(false)} 
+            className="text-gray-400 hover:text-white transition-colors transform hover:rotate-90 duration-200"
+          >
+            <FiX size={24} />
+          </button>
+        </div>
+        
+        <div className="mb-6 text-center">
+          <div className="bg-yellow-900/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border-2 border-yellow-400/30">
+            <FiDollarSign size={32} className="text-yellow-400" />
+          </div>
+          
+          <p className="text-gray-300 mb-6 text-lg">
+            This task requires a minimum deposit of <span className="text-yellow-400 font-bold">${currentTask?.depositAmount.toFixed(2)}</span>.
+          </p>
+          
+          <div className="mb-6">
+            <label className="block text-gray-400 mb-2 text-left font-bold">DEPOSIT AMOUNT</label>
+            <input
+              type="number"
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
+              placeholder={`Minimum: $${currentTask?.depositAmount.toFixed(2)}`}
+              className="w-full bg-gray-700 border-2 border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-bold text-center"
+            />
+          </div>
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={handleSubmitDeposit}
+            disabled={loading || !depositAmount || parseFloat(depositAmount) < currentTask?.depositAmount}
+            className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-yellow-600 hover:to-orange-700 disabled:opacity-50 transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/20"
+          >
+            {loading ? (
+              <FiRefreshCw className="animate-spin" />
+            ) : (
+              <>
+                <FiCheck /> SUBMIT DEPOSIT
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={goToDeposit}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-blue-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg shadow-blue-500/20"
+          >
+            <FiDollarSign /> GO TO DEPOSIT PAGE
+          </button>
+          
+          <button
+            onClick={() => {
+              setShowDepositModal(false);
+              setShowTaskModal(true);
+            }}
+            className="px-6 py-3 border-2 border-gray-600 rounded-xl hover:bg-gray-700 transition-all transform hover:scale-105 font-bold"
+          >
+            BACK TO TASK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Success Modal
+  const SuccessModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full border-2 border-teal-400/30 shadow-lg shadow-teal-400/20 animate-pop-in text-center">
+        <div className="flex justify-center mb-6">
+          <div className="bg-teal-500/20 p-4 rounded-full border-2 border-teal-400/30 animate-bounce">
+            <FaTrophy size={48} className="text-teal-400" />
+          </div>
+        </div>
+        
+        <h3 className="text-3xl font-extrabold mb-2 bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent">
+          TASK COMPLETED!
+        </h3>
+        
+        <p className="text-gray-300 text-lg mb-6">
+          You've earned <span className="text-teal-400 font-bold">${profitEarned.toFixed(2)}</span>
+        </p>
+        
+        {currentTask?.depositAmount > 0 && (
+          <p className="text-yellow-400 mb-6 font-medium">
+            Your deposit will be returned after verification
+          </p>
+        )}
+        
+        <div className="flex justify-center">
+          <button
+            onClick={() => {
+              setShowSuccessModal(false);
+              setTaskCompleted(false);
+            }}
+            className="px-8 py-3 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-xl font-extrabold hover:from-teal-600 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg shadow-teal-500/20"
+          >
+            AWESOME!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Task History Modal
+  const HistoryModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-2xl w-full border-2 border-purple-400/30 shadow-lg shadow-purple-400/10 h-[80vh] overflow-hidden flex flex-col animate-pop-in">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-extrabold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+            TASK HISTORY
+          </h3>
+          <button 
+            onClick={() => setShowHistoryModal(false)} 
+            className="text-gray-400 hover:text-white transition-colors transform hover:rotate-90 duration-200"
+          >
+            <FiX size={24} />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto pr-2">
+          {taskHistory.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              No task history yet. Complete some tasks to get started!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {taskHistory.map((task, index) => (
+                <div 
+                  key={index} 
+                  className={`p-5 rounded-xl border-2 ${task.status === 'completed' ? 'border-green-500/30 bg-green-900/10' : 'border-red-500/30 bg-red-900/10'} transition-all hover:scale-[1.02]`}
+                >
+                  <div className="flex items-center gap-4">
+                    {task.appImage && (
+                      <img 
+                        src={task.appImage} 
+                        alt={task.appName} 
+                        className="w-16 h-16 object-cover rounded-xl border-2 border-gray-700"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-lg">{task.appName}</h4>
+                        <span className={`text-xs px-3 py-1 rounded-full font-bold ${task.status === 'completed' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                          {task.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-gray-400 mt-1">{task.appReview}</p>
+                      <div className="flex justify-between items-center mt-3">
+                        <div className="text-lg font-bold">
+                          <span className={task.status === 'completed' ? 'text-green-400' : 'text-red-400'}>
+                            {task.status === 'completed' ? '+' : '-'}${task.profit.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(task.date).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16 relative">
-      {loading && <LoadingSpinner />}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 pb-16 relative overflow-hidden">
+      {showConfetti && (
+        <Confetti 
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.2}
+        />
+      )}
+      
+      {loading && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-teal-500 mb-4"></div>
+            <p className="text-xl font-bold text-teal-400 animate-pulse">LOADING TASKS...</p>
+          </div>
+        </div>
+      )}
 
-      {/* Navigation */}
       <Navbar toggleSidebar={toggleSidebar} />
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
@@ -295,13 +536,12 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 pt-24 pb-32 max-w-4xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <h1 className="text-2xl font-bold">Task Center</h1>
           {userData && (
             <div className="flex items-center gap-4 bg-teal-400/10 px-4 py-2 rounded-full border border-teal-400/20">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold">
                 VIP{userData.vipLevel?.level || 0}
               </div>
-              <div>{getVipLevelName(userData.vipLevel?.level || 0)}</div>
+              <div className='text-white'>{getVipLevelName(userData.vipLevel?.level || 0)}</div>
             </div>
           )}
         </div>
@@ -331,7 +571,7 @@ const Dashboard = () => {
 
           {/* ROI Card */}
           <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
-            <h3 className="text-lg font-semibold mb-4">Daily ROI</h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">Daily ROI</h3>
             <div className="text-center my-6">
               <div className="text-teal-400 text-4xl font-bold">
                 {userData ? `${getVipRoi(userData.vipLevel?.level || 0)}%` : '0%'}
@@ -340,116 +580,96 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Task Stats Card */}
-          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
-            <h3 className="text-lg font-semibold mb-4">Today's Tasks</h3>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Completed:</span>
-                <span className="text-green-400">{taskStats.dailyCompleted}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Limit:</span>
-                <span>{taskStats.dailyLimit}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Remaining:</span>
-                <span className={taskStats.remaining > 0 ? 'text-teal-400' : 'text-red-400'}>
-                  {taskStats.remaining}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          {/* Tasks Card */}
 
-        {/* Task Button Section */}
-        <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 text-center mb-8">
-          <h2 className="text-xl font-bold mb-6">Complete Tasks</h2>
-          
-          {message && (
-            <div className={`mb-6 p-3 rounded-lg ${
-              message.type === 'error' 
-                ? 'bg-red-900/50 border border-red-700' 
-                : message.type === 'success'
-                  ? 'bg-green-900/50 border border-green-700'
-                  : 'bg-blue-900/50 border border-blue-700'
-            }`}>
-              {message.text}
-            </div>
-          )}
 
-          {taskStats.remaining <= 0 ? (
-            <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-              <p className="text-green-400">All tasks completed for today!</p>
-              <p className="text-sm text-gray-400 mt-1">Come back tomorrow for more tasks</p>
-            </div>
-          ) : (
-            <button
-              onClick={getNewTask}
-              disabled={loading || taskStats.remaining <= 0 || availableTasks.length === 0}
-              className="w-full max-w-xs py-3 bg-gradient-to-br from-teal-400 to-teal-500 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:-translate-y-0.5 transition-all mx-auto disabled:opacity-50"
-            >
-              <FiRefreshCw /> Get Task
-            </button>
-          )}
-        </div>
-
-        {/* Available Tasks */}
-        {availableTasks.length > 0 && (
-          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Available Tasks</h2>
-            <div className="space-y-4">
-              {availableTasks.map(task => (
-                <div key={task.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  <div className="flex items-start gap-4">
-                    {task.appImage && (
-                      <img 
-                        src={task.appImage} 
-                        alt={task.appName} 
-                        className="w-16 h-16 object-cover rounded-md"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-medium">{task.appName}</h3>
-                      <p className="text-sm text-gray-400 mt-1">{task.appReview}</p>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-green-400 font-medium">
-                          {formatCurrency(task.appProfit)}
-                        </span>
-                        {!completedTaskIds.includes(task.id) && (
-                          <button
-                            onClick={() => {
-                              setCurrentTask(task);
-                              setShowTaskPopup(true);
-                            }}
-                            className="text-xs bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded"
-                          >
-                            Complete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {message && (
+          <div className={`mb-8 p-4 rounded-xl text-center font-bold ${
+            message.type === 'error' 
+              ? 'bg-red-900/50 border-2 border-red-700/50' 
+              : 'bg-green-900/50 border-2 border-green-700/50'
+          }`}>
+            {message.text}
           </div>
         )}
+
+          {tasks.length > 0 && (
+            <div className="mt-2 bg-gray-800/50 rounded-xl p-4 border-2 border-gray-700/50">
+              <h3 className="text-lg font-bold mb-2 text-center text-teal-400">
+                AVAILABLE TASKS: {tasks.length}
+              </h3>
+              <div className="flex flex-wrap justify-center gap-2">
+                {tasks.slice(0, 5).map((task, index) => (
+                  <div key={index} className="w-3 h-3 rounded-full bg-teal-500"></div>
+                ))}
+                {tasks.length > 5 && (
+                  <div className="text-xs text-gray-400">+{tasks.length - 5} more</div>
+                )}
+              </div>
+            </div>
+          )}
+
+        <div className="flex flex-col items-center justify-center py-12">
+          <button
+            onClick={getRandomTask}
+            disabled={tasks.length === 0 || loading}
+            className={`relative px-12 py-6 rounded-2xl font-extrabold text-2xl flex items-center gap-4 transition-all duration-300 transform hover:scale-105 shadow-2xl ${
+              tasks.length === 0 
+                ? 'bg-gray-700 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 animate-pulse'
+            }`}
+          >
+            <FiZap className="animate-bounce" />
+            GET TASK
+            <FiZap className="animate-bounce" />
+            {tasks.length > 0 && (
+              <span className="absolute -top-3 -right-3 bg-yellow-500 text-black text-sm font-bold px-3 py-1 rounded-full animate-ping">
+                {tasks.length}
+              </span>
+            )}
+          </button>
+          
+          <p className="mt-6 text-gray-400 text-center max-w-md">
+            Click the button above to get a random task and start earning rewards!
+          </p>
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="mt-4 flex items-center justify-center gap-2 bg-teal-400  px-4 py-2 rounded-lg border border-purple-400/20 transition-colors"
+            >
+              <FaHistory /> View History
+            </button>
+          
+        
+
+                   
+          
+        </div>
+        </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNav />
-
-      {/* Task Popup */}
-      {showTaskPopup && currentTask && (
-        <TaskPopup 
-          task={currentTask} 
-          onComplete={completeTask}
-          onClose={() => setShowTaskPopup(false)}
-          loading={loading}
+      {/* Modals */}
+      {showTaskModal && currentTask && (
+        <TaskModal 
+          task={currentTask}
+          onClose={() => setShowTaskModal(false)}
+          onComplete={handleCompleteTask}
         />
       )}
+
+      {showDepositModal && currentTask && (
+        <DepositModal />
+      )}
+
+      {showSuccessModal && (
+        <SuccessModal />
+      )}
+
+      {showHistoryModal && (
+        <HistoryModal />
+      )}
+
+      <BottomNav />
+      
     </div>
   );
 };

@@ -23,6 +23,7 @@ import ATasks from './admin/components/Tasks';
 import ATaskz from './admin/components/UesrManagement';
 import UserTasks from './admin/components/TasksManagement';
 import ATests from './admin/components/Test';
+import AUsers from './admin/components/TasksManagement';
 
 function App() {
   return (
@@ -49,7 +50,7 @@ function App() {
                                           <Route path="/admin/vip" element={<VipManagement />} />
                                            <Route path="/admin/atasks" element={<ATests />} />
                                             {/* <Route path='/admin/atasks' element={<ATaskz />} />   */}
-                                  <Route path='/admin/manage' element={<UserTasks />} />
+                                  <Route path='/admin/manage' element={<AUsers />} />
 
 
 

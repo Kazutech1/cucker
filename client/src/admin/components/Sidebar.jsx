@@ -10,7 +10,9 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiUser,
-  FiLogOut
+  FiLogOut,
+  FiList,
+  FiUsers
 } from 'react-icons/fi';
 import { FaBars, FaTimes } from 'react-icons/fa';
 
@@ -91,9 +93,8 @@ const Sidebar = ({ isMobileOpen, toggleMobileSidebar }) => {
     { path: '/admin/vip', icon: <FiStar size={20} />, label: 'VIP Levels' },
     { path: '/admin/notifications', icon: <FiBell size={20} />, label: 'Manage Notifications' },
     { path: '/admin/wallets', icon: <FiCreditCard size={20} />, label: 'Manage Wallets' },
-     { path: '/admin/atasks', icon: <FiCreditCard size={20} />, label: 'Manage Tasks' },
-          { path: '/admin/manage', icon: <FiCreditCard size={20} />, label: 'Manage Users' },
-
+   { path: '/admin/atasks', icon: <FiList size={20} />, label: 'Manage Tasks' },
+{ path: '/admin/manage', icon: <FiUsers size={20} />, label: 'Manage Users' }
   ];
 
   return (

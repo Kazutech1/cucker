@@ -11,7 +11,9 @@ import {
   FiUser as FiPersonal,
   FiHelpCircle,
   FiBell,
-  FiLogOut
+  FiLogOut,
+  FiDollarSign,
+  FiCreditCard
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/NavBar';
@@ -107,7 +109,6 @@ const ProfilePage = () => {
       
     } catch (error) {
       console.error('Balance fetch error:', error);
-      setMessage({ text: 'Failed to load balance info', type: 'error' });
     }
   };
 
@@ -215,11 +216,29 @@ const ProfilePage = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-400">
-{`$${profitBalance.toFixed(2)}`}
+                {`$${profitBalance.toFixed(2)}`}
               </div>
               <div className="text-gray-400 text-xs uppercase">Profit Balance</div>
             </div>
           </div>
+        </div>
+
+        {/* Deposit/Withdrawal Buttons */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <button
+            onClick={() => navigate('/deposit')}
+            className="bg-teal-400 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center transition-all shadow-lg"
+          >
+            <FiCreditCard className="mr-2" size={18} />
+            Deposit
+          </button>
+          <button
+            onClick={() => navigate('/withdraw')}
+            className="bg-teal-400 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center transition-all shadow-lg"
+          >
+            <FiDollarSign className="mr-2" size={18} />
+            Withdraw
+          </button>
         </div>
 
         {/* Menu Card */}
