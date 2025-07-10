@@ -820,7 +820,22 @@ export const deleteVipLevel = async (req, res) => {
 
 export const createTask = async (req, res) => {
   try {
-    const { appName, appImage, appReview, appProfit } = req.body;
+    const { appName, appImage, appReview, appProfit, isComboTask, comboAmount } = req.body;
+
+    // Validate input
+    if (!appName || !appImage || !appReview || appProfit === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "All task fields are required"
+      });
+    }
+
+    if (isComboTask && (!comboAmount || comboAmount <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Combo tasks require a positive combo amount"
+      });
+    }
 
     const task = await prisma.task.create({
       data: {
@@ -828,7 +843,16 @@ export const createTask = async (req, res) => {
         appImage,
         appReview,
         appProfit,
+        isComboTask: isComboTask || false,
+        comboAmount: isComboTask ? comboAmount : null
       }
+    });
+
+    // Notify admins of new task
+    await notifyAdmins({
+      title: "New Task Created",
+      message: `A new task "${appName}" was created`,
+      type: "info"
     });
 
     res.status(201).json({
@@ -846,15 +870,36 @@ export const createTask = async (req, res) => {
   }
 };
 
-// Admin: Get all tasks
+/**
+ * Get all tasks with filtering options
+ */
 export const getAllTasks = async (req, res) => {
   try {
+    const { isActive, isComboTask, search } = req.query;
+
     const tasks = await prisma.task.findMany({
-      orderBy: { createdAt: 'desc' }
+      where: {
+        isActive: isActive ? isActive === 'true' : undefined,
+        isComboTask: isComboTask ? isComboTask === 'true' : undefined,
+        OR: search ? [
+          { appName: { contains: search, mode: 'insensitive' } },
+          { appReview: { contains: search, mode: 'insensitive' } }
+        ] : undefined
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: {
+            assignments: true,
+            taskHistory: true
+          }
+        }
+      }
     });
 
     res.json({
       success: true,
+      count: tasks.length,
       tasks
     });
   } catch (error) {
@@ -866,11 +911,76 @@ export const getAllTasks = async (req, res) => {
   }
 };
 
-// Admin: Update task
+/**
+ * Get task by ID with detailed info
+ */
+export const getTaskById = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
+        taskHistory: {
+          orderBy: { completedAt: 'desc' },
+          take: 10
+        },
+        _count: {
+          select: {
+            assignments: true,
+            taskHistory: true
+          }
+        }
+      }
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      task
+    });
+  } catch (error) {
+    console.error("Get task by ID error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get task"
+    });
+  }
+};
+
+/**
+ * Update task details
+ */
 export const updateTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { appName, appImage, appReview, appProfit, isActive } = req.body;
+    const { appName, appImage, appReview, appProfit, isActive, isComboTask, comboAmount } = req.body;
+
+    // Validate combo task requirements
+    if (isComboTask && (!comboAmount || comboAmount <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Combo tasks require a positive combo amount"
+      });
+    }
 
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
@@ -879,7 +989,9 @@ export const updateTask = async (req, res) => {
         appImage,
         appReview,
         appProfit,
-        isActive
+        isActive,
+        isComboTask,
+        comboAmount: isComboTask ? comboAmount : null
       }
     });
 
@@ -897,13 +1009,18 @@ export const updateTask = async (req, res) => {
   }
 };
 
-// Admin: Delete task
+/**
+ * Delete a task and its assignments
+ */
 export const deleteTask = async (req, res) => {
   try {
     const { taskId } = req.params;
 
     await prisma.$transaction([
       prisma.taskAssignment.deleteMany({
+        where: { taskId }
+      }),
+      prisma.taskHistory.deleteMany({
         where: { taskId }
       }),
       prisma.task.delete({
@@ -913,7 +1030,7 @@ export const deleteTask = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Task deleted successfully"
+      message: "Task and all related data deleted successfully"
     });
   } catch (error) {
     console.error("Delete task error:", error);
@@ -924,25 +1041,24 @@ export const deleteTask = async (req, res) => {
   }
 };
 
-
+/**
+ * Assign task to user (admin-controlled)
+ * Allows assigning duplicate tasks
+ */
 export const assignTaskToUser = async (req, res) => {
   try {
     const { userId, taskId } = req.body;
 
-    // Check if user exists and is not VIP 0
+    // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { 
-        profile: { 
-          include: { vipLevelData: true } 
-        } 
-      }
+      include: { profile: true }
     });
 
-    if (!user || user.profile.vipLevel === 0) {
-      return res.status(400).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "User not found or is VIP level 0"
+        message: "User not found"
       });
     }
 
@@ -958,39 +1074,27 @@ export const assignTaskToUser = async (req, res) => {
       });
     }
 
-    // Check if user has reached daily task limit
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    
-    const tasksToday = await prisma.taskAssignment.count({
-      where: {
-        userId,
-        createdAt: { gte: todayStart }
-      }
-    });
-
-    if (tasksToday >= user.profile.dailyTasksLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `User has reached daily task limit of ${user.profile.dailyTasksLimit}`
-      });
-    }
-
-    // Create new assignment (even if user already has this task)
+    // Create new assignment (allows duplicates)
     const assignment = await prisma.taskAssignment.create({
       data: {
         taskId,
-        userId
+        userId,
+        isComboTask: task.isComboTask,
+        comboAmount: task.comboAmount
       },
       include: {
         task: true,
         user: {
-          include: {
-            profile: true
+          select: {
+            id: true,
+            username: true,
+            email: true
           }
         }
       }
     });
+
+    
 
     res.json({
       success: true,
@@ -1007,20 +1111,123 @@ export const assignTaskToUser = async (req, res) => {
   }
 };
 
+/**
+ * Assign multiple tasks to a user at once
+ */
+export const assignMultipleTasks = async (req, res) => {
+  try {
+    const { userId, taskIds } = req.body;
 
+    // Validate input
+    if (!userId || !taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID and array of task IDs are required"
+      });
+    }
 
-// Admin: Remove task from user
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Get all tasks to be assigned
+    const tasks = await prisma.task.findMany({
+      where: { 
+        id: { in: taskIds },
+        isActive: true 
+      }
+    });
+
+    if (tasks.length !== taskIds.length) {
+      const missingTasks = taskIds.filter(id => !tasks.some(t => t.id === id));
+      return res.status(400).json({
+        success: false,
+        message: "Some tasks were not found or are inactive",
+        missingTasks
+      });
+    }
+
+    // Create assignments (allows duplicates)
+    const assignments = await prisma.$transaction(
+      tasks.map(task => 
+        prisma.taskAssignment.create({
+          data: {
+            taskId: task.id,
+            userId,
+            isComboTask: task.isComboTask,
+            comboAmount: task.comboAmount
+          },
+          include: {
+            task: {
+              select: {
+                appName: true,
+                appProfit: true
+              }
+            }
+          }
+        })
+      )
+    );
+
+    // Notify user
+    await createUserNotification(userId, {
+      title: "New Tasks Assigned",
+      message: `You have been assigned ${assignments.length} new tasks`,
+      type: "info"
+    });
+
+    res.json({
+      success: true,
+      message: `${assignments.length} tasks assigned successfully`,
+      assignments
+    });
+  } catch (error) {
+    console.error("Assign multiple tasks error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to assign tasks",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Remove task from user
+ */
 export const removeTaskFromUser = async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
     const assignment = await prisma.taskAssignment.delete({
-      where: { id: assignmentId }
+      where: { id: assignmentId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
+        task: {
+          select: {
+            appName: true
+          }
+        }
+      }
     });
 
     res.json({
       success: true,
-      message: "Task removed from user successfully"
+      message: "Task removed from user successfully",
+      assignment
     });
   } catch (error) {
     console.error("Remove task error:", error);
@@ -1031,35 +1238,44 @@ export const removeTaskFromUser = async (req, res) => {
   }
 };
 
-// Admin: Get all task assignments
+/**
+ * Get all task assignments with filtering
+ */
 export const getAllTaskAssignments = async (req, res) => {
   try {
-    const { userId, taskId, status } = req.query;
+    const { userId, taskId, status, isComboTask, limit } = req.query;
 
     const assignments = await prisma.taskAssignment.findMany({
       where: {
         userId: userId || undefined,
         taskId: taskId || undefined,
         isCompleted: status === 'completed' ? true : 
-                   status === 'pending' ? false : undefined
+                   status === 'pending' ? false : undefined,
+        isComboTask: isComboTask ? isComboTask === 'true' : undefined
       },
       include: {
-        task: true,
+        task: {
+          select: {
+            appName: true,
+            appImage: true,
+            appProfit: true
+          }
+        },
         user: {
-          include: {
-            profile: {
-              include: {
-                vipLevelData: true
-              }
-            }
+          select: {
+            id: true,
+            username: true,
+            email: true
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: limit ? parseInt(limit) : undefined
     });
 
     res.json({
       success: true,
+      count: assignments.length,
       assignments
     });
   } catch (error) {
@@ -1071,18 +1287,223 @@ export const getAllTaskAssignments = async (req, res) => {
   }
 };
 
-// Admin: Get task statistics
+
+/**
+ * Complete a regular task
+ */
+export const completeTask = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    const assignment = await prisma.taskAssignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        task: true,
+        user: true
+      }
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: "Task assignment not found"
+      });
+    }
+
+    if (assignment.isCompleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Task already completed"
+      });
+    }
+
+    if (assignment.isComboTask) {
+      return res.status(400).json({
+        success: false,
+        message: "Use the completeComboTask endpoint for combo tasks"
+      });
+    }
+
+    // Mark as completed and credit profit
+    await prisma.$transaction([
+      prisma.taskAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          isCompleted: true,
+          completedAt: new Date()
+        }
+      }),
+      prisma.user.update({
+        where: { id: assignment.userId },
+        data: { 
+          profitBalance: { increment: assignment.task.appProfit }
+        }
+      }),
+      prisma.taskHistory.create({
+        data: {
+          userId: assignment.userId,
+          taskId: assignment.taskId,
+          taskName: assignment.task.appName,
+          profitEarned: assignment.task.appProfit,
+          isComboTask: false
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      message: "Task completed successfully"
+    });
+  } catch (error) {
+    console.error("Complete task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to complete task"
+    });
+  }
+};
+
+/**
+ * Complete a combo task (verify deposit and mark as completed)
+ */
+export const completeComboTask = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    
+    // Get the assignment
+    const assignment = await prisma.taskAssignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        task: true,
+        user: true
+      }
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: "Task assignment not found"
+      });
+    }
+
+    if (!assignment.isComboTask) {
+      return res.status(400).json({
+        success: false,
+        message: "This is not a combo task"
+      });
+    }
+
+    if (assignment.isCompleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Task already completed"
+      });
+    }
+
+    // Verify the user has made a deposit meeting the combo amount
+    const totalDeposits = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: { 
+        userId: assignment.userId,
+        status: 'verified'
+      }
+    });
+
+    const totalDeposited = totalDeposits._sum.amount || 0;
+
+    if (totalDeposited < assignment.comboAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `User has not deposited enough (minimum ${assignment.comboAmount} required)`,
+        deposited: totalDeposited,
+        required: assignment.comboAmount
+      });
+    }
+
+    // Mark as completed and credit profit
+    await prisma.$transaction([
+      prisma.taskAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          isCompleted: true,
+          completedAt: new Date(),
+          depositVerified: true
+        }
+      }),
+      prisma.user.update({
+        where: { id: assignment.userId },
+        data: { 
+          profitBalance: { increment: assignment.task.appProfit }
+        }
+      }),
+      prisma.taskHistory.create({
+        data: {
+          userId: assignment.userId,
+          taskId: assignment.taskId,
+          taskName: assignment.task.appName,
+          profitEarned: assignment.task.appProfit,
+          isComboTask: true,
+          comboAmount: assignment.comboAmount
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      message: "Combo task completed successfully"
+    });
+  } catch (error) {
+    console.error("Complete combo task error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to complete combo task"
+    });
+  }
+};
+
+/**
+ * Get tasks specifically designed for combo tasks
+ */
+export const getComboTasks = async (req, res) => {
+  try {
+    const comboTasks = await prisma.task.findMany({
+      where: { 
+        isComboTask: true,
+        isActive: true 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      count: comboTasks.length,
+      tasks: comboTasks
+    });
+  } catch (error) {
+    console.error("Get combo tasks error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get combo tasks"
+    });
+  }
+};
+
+/**
+ * Get task statistics for admin dashboard
+ */
 export const getTaskStatistics = async (req, res) => {
   try {
     // Total tasks stats
-    const totalTasks = await prisma.task.count();
-    const activeTasks = await prisma.task.count({ where: { isActive: true } });
+    const [totalTasks, activeTasks] = await Promise.all([
+      prisma.task.count(),
+      prisma.task.count({ where: { isActive: true } })
+    ]);
     
     // Completion stats
-    const totalAssignments = await prisma.taskAssignment.count();
-    const completedAssignments = await prisma.taskAssignment.count({ 
-      where: { isCompleted: true } 
-    });
+    const [totalAssignments, completedAssignments] = await Promise.all([
+      prisma.taskAssignment.count(),
+      prisma.taskAssignment.count({ where: { isCompleted: true } })
+    ]);
     
     // Recent completions
     const recentCompletions = await prisma.taskHistory.findMany({
@@ -1105,12 +1526,26 @@ export const getTaskStatistics = async (req, res) => {
 
     // Top performing tasks
     const topTasks = await prisma.taskHistory.groupBy({
-      by: ['taskId', 'taskName'],
+      by: ['taskId'],
       _count: { taskId: true },
       _sum: { profitEarned: true },
       orderBy: { _count: { taskId: 'desc' } },
       take: 5
     });
+
+    // Get task details for top tasks
+    const topTasksWithDetails = await Promise.all(
+      topTasks.map(async (task) => {
+        const taskDetails = await prisma.task.findUnique({
+          where: { id: task.taskId },
+          select: { appName: true, appImage: true }
+        });
+        return {
+          ...task,
+          ...taskDetails
+        };
+      })
+    );
 
     res.json({
       success: true,
@@ -1122,7 +1557,7 @@ export const getTaskStatistics = async (req, res) => {
         completionRate: totalAssignments > 0 ? 
           (completedAssignments / totalAssignments * 100).toFixed(2) : 0,
         recentCompletions,
-        topTasks
+        topTasks: topTasksWithDetails
       }
     });
   } catch (error) {
@@ -1134,127 +1569,46 @@ export const getTaskStatistics = async (req, res) => {
   }
 };
 
-
-
-export const getAdminDashboardStats = async (req, res) => {
+/**
+ * Get regular (non-combo) tasks assigned to current user
+ */
+export const getUserRegularTasks = async (req, res) => {
   try {
-    const [
-      totalUsers,
-      activeUsers,
-      totalTasks,
-      totalEarnings,
-      recentTaskCompletions,
-      userSignups
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({
-        where: {
-          lastLogin: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+    const userId = req.user.id; // From auth middleware
+
+    const tasks = await prisma.taskAssignment.findMany({
+      where: {
+        userId,
+        isCompleted: false,
+        isComboTask: false
+      },
+      include: {
+        task: {
+          select: {
+            appName: true,
+            appImage: true,
+            appReview: true,
+            appProfit: true,
+            createdAt: true
           }
         }
-      }),
-      prisma.task.count(),
-      prisma.taskHistory.aggregate({
-        _sum: { profitEarned: true }
-      }),
-      prisma.taskHistory.findMany({
-        take: 5,
-        orderBy: { completedAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              username: true
-            }
-          },
-          task: {
-            select: {
-              appName: true
-            }
-          }
-        }
-      }),
-      prisma.user.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          createdAt: true
-        }
-      })
-    ]);
-
-    res.json({
-      success: true,
-      stats: {
-        users: {
-          total: totalUsers,
-          active: activeUsers,
-          signups: userSignups
-        },
-        tasks: {
-          total: totalTasks,
-          totalEarnings: totalEarnings._sum.profitEarned || 0,
-          recentCompletions: recentTaskCompletions
-        }
-      }
-    });
-  } catch (error) {
-    console.error("Get admin dashboard stats error:", error);
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to get dashboard stats"
-    });
-  }
-};
-
-
-// Admin: Update user's daily task limit
-export const updateUserTaskLimit = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { dailyTasksLimit } = req.body;
-
-    // Validate the new limit
-    if (typeof dailyTasksLimit !== 'number' || dailyTasksLimit < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Daily task limit must be a positive number"
-      });
-    }
-
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { profile: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Update the task limit
-    const updatedProfile = await prisma.profile.update({
-      where: { userId },
-      data: { dailyTasksLimit }
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
     res.json({
       success: true,
-      message: "User's daily task limit updated successfully",
-      profile: updatedProfile
+      count: tasks.length,
+      tasks: tasks.map(assignment => ({
+        ...assignment.task,
+        assignmentId: assignment.id
+      }))
     });
   } catch (error) {
-    console.error("Update user task limit error:", error);
+    console.error("Get user regular tasks error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Failed to update user's task limit",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Failed to get regular tasks"
     });
   }
 };

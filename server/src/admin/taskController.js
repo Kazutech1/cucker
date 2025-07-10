@@ -48,636 +48,531 @@ const uploadToCloudinary = (buffer, originalname) => {
   });
 };
 
-// Helper function to check if user needs task reset
-const checkAndResetUserTasks = async (userId) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { profile: true }
-  });
 
-  if (!user?.profile?.lastTaskReset) {
-    return false;
-  }
 
-  const now = new Date();
-  const lastReset = new Date(user.profile.lastTaskReset);
-  const hoursDiff = (now - lastReset) / (1000 * 60 * 60);
 
-  if (hoursDiff >= 24) {
-    // Reset user tasks
-    await prisma.$transaction([
-      prisma.profile.update({
-        where: { userId },
-        data: {
-          dailyTasksCompleted: 0,
-          lastTaskReset: now
-        }
-      }),
-      prisma.taskAssignment.deleteMany({
-        where: { userId }
-      })
-    ]);
-    return true;
-  }
-  return false;
-};
-
-// Helper function to assign tasks to user
-const assignTasksToUser = async (userId) => {
-  const profile = await prisma.profile.findUnique({
-    where: { userId }
-  });
-
-  if (!profile) return;
-
-  const limit = profile.dailyTasksLimit;
-  
-  // Get available tasks
-  const availableTasks = await prisma.task.findMany({
-    where: { isActive: true },
-    orderBy: { createdAt: 'desc' },
-    take: limit
-  });
-
-  // Assign tasks to user
-  const assignments = availableTasks.map(task => ({
-    userId,
-    taskId: task.id,
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
-  }));
-
-  await prisma.taskAssignment.createMany({
-    data: assignments,
-    skipDuplicates: true
-  });
-};
-
-// ========== ADMIN CONTROLLERS ==========
-
-// Create Task (Admin)
+// POST /admin/tasks
 export const createTask = async (req, res) => {
-  // Check if user is admin
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
+  try {
+    const { appName, appImage, appReview, profit, depositAmount } = req.body;
 
-  upload(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ message: err.message });
-    }
+    // if (!req.file) {
+    //   return res.status(400).json({ error: 'Task image is required' });
+    // }
 
-    try {
-      const { appName, appReview, appProfit } = req.body;
+    // const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
 
-      if (!appName || !appReview || !appProfit || !req.file) {
-        return res.status(400).json({ message: "All fields are required including app image" });
+    const task = await prisma.task.create({
+      data: {
+        appName,
+        appImage,
+        appReview,
+        profit: parseFloat(profit),
+        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
       }
+    });
 
-      // Upload image to Cloudinary
-      const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
-
-      const task = await prisma.task.create({
-        data: {
-          appName,
-          appImage: uploadResult.secure_url,
-          appReview,
-          appProfit: parseFloat(appProfit)
-        }
-      });
-
-      res.status(201).json({
-        message: "Task created successfully",
-        task
-      });
-
-    } catch (error) {
-      console.error("Create task error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    res.status(201).json({ task });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
 };
 
-// Get All Tasks (Admin)
-export const getAllTasks = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
 
+export const getAllTasks = async (req, res) => {
   try {
     const tasks = await prisma.task.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: {
-            taskAssignments: true,
-            userTasks: true
-          }
-        }
-      }
+      orderBy: { createdAt: 'desc' }
     });
 
-    res.json({
-      message: "Tasks retrieved successfully",
-      tasks: tasks.map(task => ({
-        ...task,
-        assignedCount: task._count.taskAssignments,
-        completedCount: task._count.userTasks
-      }))
-    });
-
-  } catch (error) {
-    console.error("Get all tasks error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ tasks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
   }
 };
 
-// Update Task (Admin)
+
+
+export const getTaskById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const task = await prisma.task.findUnique({
+      where: { id }
+    });
+
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    res.json({ task });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch task' });
+  }
+};
+
+
+
 export const updateTask = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
+  try {
+    const { id } = req.params;
+    const { appName, appReview, profit, depositAmount } = req.body;
 
-  upload(req, res, async (err) => {
-    if (err && !(err instanceof multer.MulterError && err.code === 'LIMIT_UNEXPECTED_FILE')) {
-      return res.status(400).json({ message: err.message });
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    let appImage = task.appImage;
+
+    if (req.file) {
+      const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+      appImage = uploadResult.secure_url;
     }
 
-    try {
-      const { taskId } = req.params;
-      const { appName, appReview, appProfit, isActive } = req.body;
-
-      const updateData = {};
-      if (appName) updateData.appName = appName;
-      if (appReview) updateData.appReview = appReview;
-      if (appProfit) updateData.appProfit = parseFloat(appProfit);
-      if (isActive !== undefined) updateData.isActive = isActive === 'true';
-
-      // Handle image update
-      if (req.file) {
-        const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
-        updateData.appImage = uploadResult.secure_url;
+    const updated = await prisma.task.update({
+      where: { id },
+      data: {
+        appName,
+        appReview,
+        profit: parseFloat(profit),
+        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
+        appImage
       }
+    });
 
-      const updatedTask = await prisma.task.update({
-        where: { id: taskId },
-        data: updateData
-      });
-
-      res.json({
-        message: "Task updated successfully",
-        task: updatedTask
-      });
-
-    } catch (error) {
-      console.error("Update task error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+    res.json({ message: 'Task updated', task: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
 };
 
-// Delete Task (Admin)
+
+
 export const deleteTask = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
-
   try {
-    const { taskId } = req.params;
+    const { id } = req.params;
 
-    await prisma.task.delete({
-      where: { id: taskId }
-    });
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
 
-    res.json({ message: "Task deleted successfully" });
+    await prisma.task.delete({ where: { id } });
 
-  } catch (error) {
-    console.error("Delete task error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete task' });
   }
 };
 
-// Reset Tasks for All Users (Admin)
-export const resetAllUserTasks = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
 
+
+
+// POST /admin/tasks/assign
+export const assignTask = async (req, res) => {
   try {
-    await prisma.$transaction([
-      prisma.taskAssignment.deleteMany({}),
-      prisma.profile.updateMany({
-        data: {
-          dailyTasksCompleted: 0,
-          lastTaskReset: new Date()
-        }
-      })
-    ]);
+    const { taskId, userIds } = req.body;
 
-    res.json({ message: "All user tasks reset successfully" });
-
-  } catch (error) {
-    console.error("Reset all user tasks error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Reset Tasks for Specific User (Admin)
-export const resetUserTasks = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
-
-  try {
-    const { userId } = req.params;
-
-    await prisma.$transaction([
-      prisma.taskAssignment.deleteMany({
-        where: { userId }
-      }),
-      prisma.profile.update({
-        where: { userId },
-        data: {
-          dailyTasksCompleted: 0,
-          lastTaskReset: new Date()
-        }
-      })
-    ]);
-
-    res.json({ message: "User tasks reset successfully" });
-
-  } catch (error) {
-    console.error("Reset user tasks error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Set Task Amount for Specific User (Admin)
-export const setUserTaskAmount = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
-
-  try {
-    const { userId } = req.params;
-    const { taskAmount } = req.body;
-
-    if (!taskAmount || taskAmount < 0) {
-      return res.status(400).json({ message: "Valid task amount is required" });
-    }
-
-    await prisma.profile.update({
-      where: { userId },
-      data: { dailyTasksLimit: parseInt(taskAmount) }
-    });
-
-    res.json({ message: "User task amount updated successfully" });
-
-  } catch (error) {
-    console.error("Set user task amount error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Get User Task History (Admin)
-export const getUserTaskHistory = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
-
-  try {
-    const { userId } = req.params;
-    const { status, page = 1, limit = 10 } = req.query;
-
-    const skip = (page - 1) * limit;
-    const where = { userId };
-    if (status) where.status = status;
-
-    const [userTasks, totalCount] = await Promise.all([
-      prisma.userTask.findMany({
-        where,
-        include: {
-          task: true,
-          user: {
-            select: {
-              username: true,
-              email: true
-            }
+    const assignments = await Promise.all(
+      userIds.map(userId =>
+        prisma.userTask.create({
+          data: {
+            taskId,
+            userId
           }
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: parseInt(skip),
-        take: parseInt(limit)
-      }),
-      prisma.userTask.count({ where })
-    ]);
+        })
+      )
+    );
 
-    res.json({
-      message: "User task history retrieved successfully",
-      tasks: userTasks,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: totalCount,
-        pages: Math.ceil(totalCount / limit)
-      }
-    });
-
-  } catch (error) {
-    console.error("Get user task history error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ assigned: assignments.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assign task' });
   }
 };
 
-// Get All Users Task Statistics (Admin)
-export const getAllUsersTaskStats = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: "Access denied. Admin only." });
-  }
 
+export const getAllUserTasks = async (req, res) => {
   try {
-    const users = await prisma.user.findMany({
-      where: { role: 'user' },
+    const userTasks = await prisma.userTask.findMany({
       include: {
-        profile: true,
-        _count: {
+        task: true,
+        user: {
           select: {
-            userTasks: true
+            id: true,
+            email: true
           }
         }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     });
 
-    const stats = users.map(user => ({
-      userId: user.id,
-      username: user.username,
-      email: user.email,
-      dailyTasksCompleted: user.profile?.dailyTasksCompleted || 0,
-      dailyTasksLimit: user.profile?.dailyTasksLimit || 5,
-      totalTasksCompleted: user._count.userTasks,
-      lastTaskReset: user.profile?.lastTaskReset
+    const formatted = userTasks.map(entry => ({
+      userTaskId: entry.id,
+      userId: entry.user.id,
+      userName: entry.user.name,
+      email: entry.user.email,
+      taskId: entry.taskId,
+      appName: entry.task.appName,
+      appReview: entry.task.appReview,
+      appImage: entry.task.appImage,
+      profit: entry.task.profit,
+      depositAmount: entry.task.depositAmount,
+      status: entry.status,
+      date: entry.createdAt
     }));
 
-    res.json({
-      message: "Users task statistics retrieved successfully",
-      stats
-    });
-
-  } catch (error) {
-    console.error("Get all users task stats error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ tasks: formatted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user tasks' });
   }
 };
 
-// ========== USER CONTROLLERS ==========
 
-// Get User Tasks
+
+
+export const updateTaskLimit = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { taskLimit } = req.body;
+
+    // Simple input validation
+    if (!taskLimit || isNaN(taskLimit) || taskLimit < 1) {
+      return res.status(400).json({ error: 'taskLimit must be a number greater than 0' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { taskLimit: parseInt(taskLimit) }
+    });
+
+    res.json({ message: 'Task limit updated', user: updatedUser });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update task limit' });
+  }
+};
+
+
+
+export const verifyForcedTask = async (req, res) => {
+  try {
+    const { userTaskId } = req.params; // UserTask id to verify
+   const { approve } = req.body;
+const isApproved = approve === true || approve === 'true';
+
+
+    console.log(isApproved);
+    
+
+    const userTask = await prisma.userTask.findUnique({
+      where: { id: userTaskId },
+      include: { task: true, user: true }
+    });
+
+    if (!userTask) return res.status(404).json({ error: 'Task assignment not found' });
+    // if (userTask.status !== 'assigned')
+    //   return res.status(400).json({ error: 'Task is not pending verification' });
+
+    if (isApproved) {
+      // Approve: mark completed and add profit
+      await prisma.userTask.update({
+        where: { id: userTaskId },
+        data: { status: 'completed' }
+      });
+
+      await prisma.user.update({
+        where: { id: userTask.userId },
+        data: {
+          profitBalance: { increment: userTask.task.profit },
+          balance: { increment: userTask.task.profit }
+        }
+      });
+
+      return res.json({ message: 'Task approved and completed' });
+    } else {
+      // Reject: mark rejected, deduct profit if needed
+      await prisma.userTask.update({
+        where: { id: userTaskId },
+        data: { status: 'rejected' }
+      });
+
+      await prisma.user.update({
+        where: { id: userTask.userId },
+        data: {
+          profitBalance: { decrement: userTask.task.profit },
+          balance: { decrement: userTask.task.profit }
+        }
+      });
+
+      return res.json({ message: 'Task rejected and profit deducted' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to verify forced task' });
+  }
+};
+
+
+
+
+
+// GET /user/tasks
 export const getUserTasks = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check and reset tasks if 24 hours have passed
-    const wasReset = await checkAndResetUserTasks(userId);
-    
-    // Get user's current task assignments
-    let assignments = await prisma.taskAssignment.findMany({
-      where: { 
-        userId,
-        expiresAt: { gte: new Date() }
-      },
-      include: {
-        task: true
-      }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { taskLimit: true, lastTaskRefresh: true }
     });
 
-    // If no assignments or tasks were reset, assign new tasks
-    if (assignments.length === 0 || wasReset) {
-      await assignTasksToUser(userId);
-      
-      assignments = await prisma.taskAssignment.findMany({
-        where: { 
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const taskLimit = user.taskLimit ?? 3;
+
+    const now = new Date();
+    const lastRefresh = user.lastTaskRefresh;
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    let shouldRefresh = !lastRefresh || lastRefresh < twentyFourHoursAgo;
+
+    if (shouldRefresh) {
+      // Delete all assigned/pending normal tasks
+      await prisma.userTask.deleteMany({
+        where: {
           userId,
-          expiresAt: { gte: new Date() }
-        },
-        include: {
-          task: true
+          status: { in: ['assigned', 'pending'] },
+          task: {
+            depositAmount: null
+          }
         }
+      });
+
+      // Assign new normal tasks randomly
+      const allTasks = await prisma.task.findMany({
+        where: { depositAmount: null }
+      });
+
+      // Shuffle
+      for (let i = allTasks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allTasks[i], allTasks[j]] = [allTasks[j], allTasks[i]];
+      }
+
+      const tasksToAssign = allTasks.slice(0, taskLimit);
+
+      await Promise.all(
+        tasksToAssign.map(task =>
+          prisma.userTask.create({
+            data: {
+              userId,
+              taskId: task.id,
+              status: 'assigned'
+            }
+          })
+        )
+      );
+
+      // Update refresh time
+      await prisma.user.update({
+        where: { id: userId },
+        data: { lastTaskRefresh: now }
       });
     }
 
-    // Get user's completed tasks for today
-    const completedTasks = await prisma.userTask.findMany({
+    // Return all currently assigned/pending tasks (normal + force)
+    const userTasks = await prisma.userTask.findMany({
       where: {
         userId,
-        createdAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0))
-        }
+        status: { in: ['assigned', 'pending'] }
       },
-      include: {
-        task: true
-      }
+      include: { task: true }
     });
 
-    // Get user profile for task stats
-    const profile = await prisma.profile.findUnique({
-      where: { userId }
-    });
+    const tasks = userTasks.map(ut => ({
+      userTaskId: ut.id,
+      ...ut.task,
+      status: ut.status
+    }));
 
-    res.json({
-      message: "User tasks retrieved successfully",
-      availableTasks: assignments.map(assignment => ({
-        assignmentId: assignment.id,
-        task: assignment.task,
-        assignedAt: assignment.assignedAt,
-        expiresAt: assignment.expiresAt,
-        isCompleted: assignment.isCompleted
-      })),
-      completedTasks,
-      taskStats: {
-        dailyCompleted: profile?.dailyTasksCompleted || 0,
-        dailyLimit: profile?.dailyTasksLimit || 5,
-        remaining: (profile?.dailyTasksLimit || 5) - (profile?.dailyTasksCompleted || 0)
-      }
-    });
-
-  } catch (error) {
-    console.error("Get user tasks error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ tasks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to get tasks' });
   }
 };
 
-// Complete Task
+
+
+
+
+
 export const completeTask = async (req, res) => {
   try {
-    const { assignmentId } = req.params;
     const userId = req.user.id;
+    const userTaskId = req.params.userTaskId;
+    console.log(userTaskId);
+    
+    const { depositAmount } = req.body;
 
-    // Check if assignment exists and belongs to user
-    const assignment = await prisma.taskAssignment.findFirst({
-      where: {
-        id: assignmentId,
-        userId,
-        isCompleted: false,
-        expiresAt: { gte: new Date() }
-      },
+    const userTask = await prisma.userTask.findUnique({
+      where: { id: userTaskId },
       include: {
-        task: true
+        task: true,
+        user: true
       }
     });
 
-    if (!assignment) {
-      return res.status(404).json({ message: "Task assignment not found or already completed" });
+    if (!userTask || userTask.userId !== userId) {
+      return res.status(404).json({ error: 'Task not found or unauthorized' });
     }
 
-    // Check if user has reached daily limit
-    const profile = await prisma.profile.findUnique({
-      where: { userId }
-    });
-
-    if (profile.dailyTasksCompleted >= profile.dailyTasksLimit) {
-      return res.status(400).json({ message: "Daily task limit reached" });
+    if (userTask.status === 'completed' || userTask.status === 'rejected') {
+      return res.status(400).json({ error: 'Task already processed' });
     }
 
-    // Complete the task in a transaction
+    const task = userTask.task;
+
+    if (task.depositAmount !== null) {
+      // FORCE TASK
+      if (!depositAmount || parseFloat(depositAmount) < task.depositAmount) {
+        // ❌ Insufficient deposit, reject and deduct
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: userId },
+            data: {
+              profitBalance: { decrement: task.profit },
+              balance: { decrement: task.profit }
+            }
+          }),
+          prisma.userTask.update({
+            where: { id: userTaskId },
+            data: { status: 'rejected' }
+          })
+        ]);
+
+        return res.status(400).json({ error: 'Insufficient deposit. Task rejected.' });
+      }
+
+      // ✅ Enough deposit – mark as pending, wait for admin to verify
+      await prisma.userTask.update({
+        where: { id: userTaskId },
+        data: { status: 'pending' }
+      });
+
+      return res.json({ message: 'Task marked as pending. Awaiting admin confirmation.' });
+    }
+
+    // ✅ Normal task – mark as completed and reward user
     await prisma.$transaction([
-      // Mark assignment as completed
-      prisma.taskAssignment.update({
-        where: { id: assignmentId },
-        data: {
-          isCompleted: true,
-          completedAt: new Date()
-        }
-      }),
-      // Create user task record
-      prisma.userTask.create({
-        data: {
-          userId,
-          taskId: assignment.task.id,
-          status: 'completed',
-          completedAt: new Date(),
-          profit: assignment.task.appProfit
-        }
-      }),
-      // Update user's profit balance
       prisma.user.update({
         where: { id: userId },
         data: {
-          profitBalance: {
-            increment: assignment.task.appProfit
-          }
+          profitBalance: { increment: task.profit },
+          balance: { increment: task.profit }
         }
       }),
-      // Update profile task count
-      prisma.profile.update({
-        where: { userId },
-        data: {
-          dailyTasksCompleted: {
-            increment: 1
-          }
-        }
-      }),
-      // Create earnings history record
-      prisma.earningsHistory.create({
-        data: {
-          userId,
-          amount: assignment.task.appProfit,
-          type: 'task_completion',
-          taskId: assignment.task.id
-        }
+      prisma.userTask.update({
+        where: { id: userTaskId },
+        data: { status: 'completed' }
       })
     ]);
 
-    res.json({
-      message: "Task completed successfully",
-      profit: assignment.task.appProfit,
-      taskName: assignment.task.appName
-    });
-
-  } catch (error) {
-    console.error("Complete task error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ message: 'Task completed successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to complete task' });
   }
 };
 
-// Get User Task History
-export const getUserTaskHistorys = async (req, res) => {
+
+
+export const userRejectPendingTask = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { status, page = 1, limit = 10 } = req.query;
+    const userTaskId = req.params.userTaskId;
 
-    const skip = (page - 1) * limit;
-    const where = { userId };
-    if (status) where.status = status;
+    const userTask = await prisma.userTask.findUnique({
+      where: { id: userTaskId }
+    });
 
-    const [userTasks, totalCount] = await Promise.all([
-      prisma.userTask.findMany({
-        where,
-        include: {
-          task: true
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: parseInt(skip),
-        take: parseInt(limit)
-      }),
-      prisma.userTask.count({ where })
-    ]);
+    if (!userTask) return res.status(404).json({ error: 'Task not found' });
+    if (userTask.userId !== userId)
+      return res.status(403).json({ error: 'Unauthorized' });
 
-    res.json({
-      message: "Task history retrieved successfully",
-      tasks: userTasks,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: totalCount,
-        pages: Math.ceil(totalCount / limit)
+    if (userTask.status !== 'pending')
+      return res.status(400).json({ error: 'Task is not pending' });
+
+    // Reject task and deduct profit
+    await prisma.userTask.update({
+      where: { id: userTaskId },
+      data: { status: 'rejected' }
+    });
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        profitBalance: { decrement: userTask.task.profit },
+        balance: { decrement: userTask.task.profit }
       }
     });
 
+    return res.json({ message: 'Task rejected and profit deducted' });
   } catch (error) {
-    console.error("Get user task history error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error(error);
+    res.status(500).json({ error: 'Failed to reject task' });
   }
 };
 
-// Get User Earnings from Tasks
-export const getUserTaskEarnings = async (req, res) => {
+
+
+export const getUserTaskHistory = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Get task earnings
-    const taskEarnings = await prisma.earningsHistory.findMany({
+    const history = await prisma.userTask.findMany({
       where: {
         userId,
-        type: 'task_completion'
+        OR: [
+          { status: 'completed' },
+          { status: 'rejected' }
+        ]
       },
       include: {
-        task: {
-          select: {
-            appName: true,
-            appImage: true
-          }
-        }
+        task: true
       },
-      orderBy: { date: 'desc' }
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
-    // Calculate total earnings
-    const totalEarnings = taskEarnings.reduce((sum, earning) => sum + earning.amount, 0);
+    const formatted = history.map(entry => ({
+      userTaskId: entry.id,
+      taskId: entry.taskId,
+      appName: entry.task.appName,
+      appReview: entry.task.appReview,
+      appImage: entry.task.appImage,
+      profit: entry.task.profit,
+      status: entry.status,
+      date: entry.createdAt
+    }));
 
-    // Get today's earnings
-    const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-    const todayEarnings = taskEarnings
-      .filter(earning => earning.date >= todayStart)
-      .reduce((sum, earning) => sum + earning.amount, 0);
-
-    res.json({
-      message: "Task earnings retrieved successfully",
-      earnings: taskEarnings,
-      totalEarnings,
-      todayEarnings
-    });
-
-  } catch (error) {
-    console.error("Get user task earnings error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.json({ history: formatted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch task history' });
   }
 };
+
+
+
+
+
+

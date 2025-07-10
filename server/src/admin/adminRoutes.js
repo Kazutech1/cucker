@@ -23,19 +23,25 @@ import {
   createVipLevel,
   updateVipLevelDetails,
   deleteVipLevel,
-  createTask,
-  getAllTasks,
-  updateTask,
-  deleteTask,
-  assignTaskToUser,
-  removeTaskFromUser,
-  getAllTaskAssignments,
-  getTaskStatistics,
-  getAdminDashboardStats,
-  updateUserTaskLimit,
+  // createTask,
+  // getAllTasks,
+  // updateTask,
+  // deleteTask,
+  // assignTaskToUser,
+  // removeTaskFromUser,
+  // getAllTaskAssignments,
+  // // getTaskStatistics,
+  // getAdminDashboardStats,
+  // updateUserTaskLimit,
+  // assignComboTask,
+  // convertToComboTask,
+  // removeComboFromTask,
+  // getTaskById,
+  // assignMultipleTasks,
 } from './userController.js';
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
+import { assignTask, createTask, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, verifyForcedTask } from './taskController.js';
 // import { createTask, deleteTask, getAllTasks, getAllUsersTaskStats, getUserTaskHistorys, resetAllUserTasks, resetUserTasks, setUserTaskAmount, updateTask } from './taskController.js';
 // import { createAppReview, createTask, deleteAppReview, deleteTask, getAllTasks, getAppReviews, getTaskAnalytics, getTaskSettings, getUsersWithPendingTasks, getUserTaskStats, resetAllUserTasks, resetUserTasks, setUserTaskLimit, updateAppReview, updateTask, updateTaskSettings, updateUserTaskLimit } from './taskController.js';
 
@@ -118,16 +124,40 @@ router.delete('/notifications/:notificationId', deleteNotification);
 
 
 
-router.post('/tasks', createTask);
-router.get('/tasks', getAllTasks);
-router.put('/tasks/:taskId', updateTask); 
-router.delete('/tasks/:taskId', deleteTask); 
-router.post('/tasks/assign', assignTaskToUser);
-router.delete('/tasks/assign/:assignmentId', removeTaskFromUser);
-router.get('/tasks/assignments', getAllTaskAssignments);
-router.get('/tasks/stats', getTaskStatistics);
-router.get('/tasks/dashboard', getAdminDashboardStats);
-router.put('/tasks/:userId/task-limit', updateUserTaskLimit)
+// router.post('/tasks', createTask);
+// router.get('/tasks', getAllTasks);
+// router.put('/tasks/:taskId', updateTask); 
+// router.delete('/tasks/:taskId', deleteTask); 
+// router.post('/tasks/assign', assignTaskToUser);
+// router.delete('/tasks/assign/:assignmentId', removeTaskFromUser);
+// router.get('/tasks/assignments', getAllTaskAssignments);
+// router.get('/tasks/stats', getTaskStatistics);
+// router.get('/tasks/dashboard', getAdminDashboardStats);
+// router.put('/tasks/:userId/task-limit', updateUserTaskLimit)
+// router.post('/tasks/assign-combo', assignComboTask)
+// router.post('/tasks/:taskId/remove-combo', removeComboFromTask)
+// router.put('/tasks/:taskId/make-combo', convertToComboTask)
+
+
+
+
+router.post('/tasks',   createTask);
+router.get('/tasks',  getAllTasks);
+router.get('/tasks/:id',  getTaskById);
+router.put('/tasks/:id',   updateTask);
+router.delete('/tasks/:id',  deleteTask);
+
+/** --- ADMIN ASSIGN TASKS --- **/
+router.post('/tasks/assign',  assignTask);
+
+/** --- ADMIN VERIFY FORCED TASK --- **/
+router.post('/user-tasks/:userTaskId/verify',  verifyForcedTask);
+
+/** --- ADMIN UPDATE USER TASK LIMIT --- **/
+router.put('/users/:id/task-limit',  updateTaskLimit);
+
+
+router.get('/users/:id/task-history',  getAllUserTasks)
 
 
 

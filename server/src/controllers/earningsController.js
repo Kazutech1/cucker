@@ -132,7 +132,7 @@ export const completeTask = async (req, res) => {
     const userId = req.user.id;
     const { taskId } = req.body;
 
-    // Verify task assignment exists and isn't completed
+    // 1. Get the assignment
     const assignment = await prisma.taskAssignment.findFirst({
       where: {
         taskId,
@@ -151,8 +151,57 @@ export const completeTask = async (req, res) => {
       });
     }
 
-    // Update profile and complete task in transaction
-const [updatedProfile, completedAssignment, historyRecord] = await prisma.$transaction([
+    // 2. Handle combo task verification
+    if (assignment.isComboTask && !assignment.depositVerified) {
+      // Check for required deposit
+      const deposit = await prisma.deposit.findFirst({
+        where: {
+          userId,
+          amount: { gte: assignment.comboAmount || 0 },
+          status: "verified"
+        }
+      });
+
+      if (!deposit) {
+        // Penalize user for attempting without deposit
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            balance: { decrement: assignment.task.appProfit }
+          }
+        });
+
+        // Mark as completed (failed)
+        await prisma.taskAssignment.update({
+          where: { id: assignment.id },
+          data: {
+            isCompleted: true,
+            completedAt: new Date()
+          }
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: `This task requires a verified deposit of ${assignment.comboAmount}. ${assignment.task.appProfit} has been deducted from your balance.`
+        });
+      }
+
+      // Mark deposit as verified for this task
+      await prisma.taskAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          depositVerified: true
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: "Deposit verified. You may now complete the task requirements."
+      });
+    }
+
+    // 3. Complete the task (normal flow)
+    const [updatedProfile, completedAssignment] = await prisma.$transaction([
       prisma.profile.update({
         where: { userId },
         data: {
@@ -164,9 +213,6 @@ const [updatedProfile, completedAssignment, historyRecord] = await prisma.$trans
         data: {
           isCompleted: true,
           completedAt: new Date()
-        },
-        include: {
-          task: true
         }
       }),
       prisma.user.update({
@@ -175,14 +221,16 @@ const [updatedProfile, completedAssignment, historyRecord] = await prisma.$trans
           profitBalance: { increment: assignment.task.appProfit }
         }
       }),
-       prisma.taskHistory.create({
-    data: {
-      userId,
-      taskId,
-      taskName: assignment.task.appName,
-      profitEarned: assignment.task.appProfit
-    }
-  })
+      prisma.taskHistory.create({
+        data: {
+          userId,
+          taskId,
+          taskName: assignment.task.appName,
+          profitEarned: assignment.task.appProfit,
+          isComboTask: assignment.isComboTask,
+          comboAmount: assignment.comboAmount
+        }
+      })
     ]);
 
     res.json({
@@ -199,6 +247,7 @@ const [updatedProfile, completedAssignment, historyRecord] = await prisma.$trans
     });
   }
 };
+
 
 
 

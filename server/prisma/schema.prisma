@@ -20,9 +20,13 @@ model User {
   role         String   @default("user") // 'user' or 'admin'
   balance      Float    @default(0)
   profitBalance Float   @default(0)
+  taskLimit       Int        @default(5)
+
+  taskWindowStart DateTime?
   withdrawalAddress String?
   profilePicture String?
   lastProfitCalc DateTime?
+  lastTaskRefresh DateTime?
   lastLogin    DateTime?  // Add this new field
   createdAt    DateTime @default(now())
 
@@ -30,9 +34,10 @@ model User {
   profile     Profile?
   withdrawal Withdrawal[]
   deposit    Deposit[]
-  taskHistory  TaskHistory[]
-  // userTasks   UserTask[]
-  taskAssignments TaskAssignment[]
+  userTasks       UserTask[]
+  // taskHistory  TaskHistory[]
+  // // userTasks   UserTask[]
+  // taskAssignments TaskAssignment[]
 }
 
 model VipLevel {
@@ -176,43 +181,81 @@ model Notification {
 //   updatedAt       DateTime @updatedAt
 // }
 
+// model Task {
+//   id          String    @id @default(uuid())
+//   appName     String
+//   appImage    String
+//   appReview   String
+//   appProfit   Float
+//   isActive    Boolean   @default(true)
+//   isComboTask Boolean   @default(false)
+//   comboAmount Float?
+//   createdAt   DateTime  @default(now())
+//   updatedAt   DateTime  @updatedAt
+//   assignments TaskAssignment[]
+//   taskHistory TaskHistory[]
+// }
+
+// model TaskAssignment {
+//   id            String   @id @default(uuid())
+//   taskId        String
+//   userId        String
+//   isCompleted   Boolean  @default(false)
+//   isComboTask   Boolean  @default(false)
+//   comboAmount   Float?
+//   depositVerified Boolean @default(false)
+//   completedAt   DateTime?
+//   createdAt     DateTime @default(now())
+  
+//   task          Task     @relation(fields: [taskId], references: [id])
+//   user          User     @relation(fields: [userId], references: [id])
+// }
+
+// model TaskHistory {
+//   id          String   @id @default(uuid())
+//   userId      String
+//   taskId      String
+//   taskName    String
+//   profitEarned Float
+//   isComboTask Boolean  @default(false)
+//   comboAmount Float?
+//   completedAt DateTime @default(now())
+  
+//   user        User     @relation(fields: [userId], references: [id])
+//   task        Task?    @relation(fields: [taskId], references: [id])
+// }
+
+
+
 model Task {
-  id          String    @id @default(uuid())
-  appName     String
-  appImage    String
-  appReview   String
-  appProfit   Float
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  assignments TaskAssignment[]
-  taskHistory  TaskHistory[]
-}
-
-model TaskAssignment {
-  id          String   @id @default(uuid())
-  taskId      String
-  userId      String
-  profitEarned Float?  // Track actual profit earned (in case appProfit changes)
-  isCompleted Boolean  @default(false)
-  completedAt DateTime?
-  createdAt   DateTime @default(now())
-  
-  task        Task     @relation(fields: [taskId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
-  
-  // @@unique([taskId, userId])
+  id            String     @id @default(uuid())
+  appName       String
+  appImage      String
+  appReview     String
+  profit        Float
+  depositAmount Float?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  assignedUsers UserTask[]
 }
 
 
-model TaskHistory {
-  id          String   @id @default(uuid())
-  userId      String
-  taskId      String
-  taskName    String   // Snapshot of task name at completion
-  profitEarned Float
-  completedAt DateTime @default(now())
-  
-  user        User     @relation(fields: [userId], references: [id])
-  task        Task?    @relation(fields: [taskId], references: [id])
+enum UserTaskStatus {
+  pending
+  completed
+  rejected
+  assigned  // default state after assignment
+}
+
+
+
+
+model UserTask {
+  id         String           @id @default(uuid())
+  user       User             @relation(fields: [userId], references: [id])
+  userId     String
+  task       Task             @relation(fields: [taskId], references: [id])
+  taskId     String
+  status     UserTaskStatus   @default(assigned)
+  createdAt  DateTime         @default(now())
 }
