@@ -330,37 +330,45 @@ export const getUserTasks = async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { taskLimit: true, lastTaskRefresh: true }
+      select: {
+        taskLimit: true,
+        lastTaskRefresh: true,
+        profile: {
+          select: {
+            vipLevel: true // <- pull VIP level from related Profile
+          }
+        }
+      }
     });
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const taskLimit = user.taskLimit ?? 3;
+    const vipLevel = user.profile?.vipLevel ?? 0;
+    if (vipLevel === 0) {
+      return res.status(403).json({ error: 'You must upgrade your VIP level to receive tasks.' });
+    }
+
+    const taskLimit =  40;
 
     const now = new Date();
     const lastRefresh = user.lastTaskRefresh;
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    let shouldRefresh = !lastRefresh || lastRefresh < twentyFourHoursAgo;
+    const shouldRefresh = !lastRefresh || lastRefresh < twentyFourHoursAgo;
 
     if (shouldRefresh) {
-      // Delete all assigned/pending normal tasks
       await prisma.userTask.deleteMany({
         where: {
           userId,
           status: { in: ['assigned', 'pending'] },
-          task: {
-            depositAmount: null
-          }
+          task: { depositAmount: null }
         }
       });
 
-      // Assign new normal tasks randomly
       const allTasks = await prisma.task.findMany({
         where: { depositAmount: null }
       });
 
-      // Shuffle
       for (let i = allTasks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [allTasks[i], allTasks[j]] = [allTasks[j], allTasks[i]];
@@ -380,14 +388,12 @@ export const getUserTasks = async (req, res) => {
         )
       );
 
-      // Update refresh time
       await prisma.user.update({
         where: { id: userId },
         data: { lastTaskRefresh: now }
       });
     }
 
-    // Return all currently assigned/pending tasks (normal + force)
     const userTasks = await prisma.userTask.findMany({
       where: {
         userId,
@@ -408,6 +414,7 @@ export const getUserTasks = async (req, res) => {
     res.status(500).json({ error: 'Failed to get tasks' });
   }
 };
+
 
 
 
