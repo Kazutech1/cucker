@@ -193,6 +193,29 @@ const AUsers = () => {
     }
   };
 
+
+
+  const assignTasks = async () => {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/task/${selectedUser.id}/assign-tasks`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    fetchUserDetails(selectedUser.id);
+    // Optionally refresh user task list
+  } catch (err) {
+    alert('Failed to assign tasks');
+  }
+};
+
+
+
+
   const updateBalance = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${selectedUser.id}`, {
@@ -655,6 +678,12 @@ const AUsers = () => {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-2 md:mb-0">Task Management</h2>
                     <div className="flex flex-wrap gap-2">
+                        <button
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-150 flex items-center"
+                          onClick={() => assignTasks()}
+                        >
+                          <FiPlus className="mr-2" /> Assign All Tasks
+                        </button>
                       <button
                         onClick={() => openAssignTaskModal(false)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150 flex items-center"
@@ -669,6 +698,9 @@ const AUsers = () => {
                       </button>
                     </div>
                   </div>
+
+                
+
 
                   {/* Task History */}
                   <div>

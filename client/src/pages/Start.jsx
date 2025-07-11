@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaHistory, FaCoins, FaTrophy } from 'react-icons/fa';
+import { FaHistory, FaCoins, FaTrophy, FaHeadset } from 'react-icons/fa';
 import { 
   FiRefreshCw, FiLayers, FiAlertCircle, FiCheck, 
   FiX, FiClock, FiDollarSign, FiZap 
@@ -9,7 +9,6 @@ import Confetti from 'react-confetti';
 import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
-
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -28,6 +27,13 @@ const Dashboard = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [taskCompleted, setTaskCompleted] = useState(false);
   const [profitEarned, setProfitEarned] = useState(0);
+  const [taskStats, setTaskStats] = useState({
+    totalTasks: 0,
+    availableTasks: 0,
+    completedTasks: 0
+  });
+  const [showNoTasksModal, setShowNoTasksModal] = useState(false);
+  const [showUpgradeVipModal, setShowUpgradeVipModal] = useState(false);
   const navigate = useNavigate();
 
   const toggleSidebar = () => {
@@ -117,7 +123,6 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch user tasks
   const fetchTasks = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -125,18 +130,32 @@ const Dashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch tasks');
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Please upgrade your VIP level to receive tasks');
+        } else {
+          throw new Error('Failed to fetch tasks');
+        }
+      }
       
       const data = await response.json();
       setTasks(data.tasks);
+      setTaskStats({
+        totalTasks: data.totalTask || 0,
+        availableTasks: data.tasks.length,
+        completedTasks: (data.totalTasks || 0) - data.tasks.length
+      });
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      setMessage({ 
+        text: error.message, 
+        type: 'error',
+        isUpgradeRequired: error.message.includes('upgrade your VIP level')
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch task history
   const fetchTaskHistory = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -153,34 +172,45 @@ const Dashboard = () => {
     }
   };
 
-  // Get a random task
   const getRandomTask = () => {
+    // Check if user is VIP 0
+    if (userData?.vipLevel?.level === 0) {
+      setShowUpgradeVipModal(true);
+      return;
+    }
+
+    
+    
+    
+    // Check if no tasks available
     if (tasks.length === 0) {
-      setMessage({ text: 'No tasks available', type: 'error' });
+      setShowNoTasksModal(true);
+      console.log(task.length);
+      
+      
       return;
     }
     
     const randomIndex = Math.floor(Math.random() * tasks.length);
     const task = tasks[randomIndex];
+    console.log(task.length);
+    
     setCurrentTask(task);
     setShowTaskModal(true);
     setTaskCompleted(false);
   };
 
-  // Complete task
   const handleCompleteTask = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      // If task requires deposit, show deposit modal
       if (currentTask.depositAmount > 0) {
         setShowTaskModal(false);
         setShowDepositModal(true);
         return;
       }
       
-      // Complete normal task
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/tasks/${currentTask.userTaskId}/complete`, {
         method: 'POST',
         headers: { 
@@ -212,7 +242,6 @@ const Dashboard = () => {
     }
   };
 
-  // Submit deposit for force task
   const handleSubmitDeposit = async () => {
     try {
       setLoading(true);
@@ -248,10 +277,18 @@ const Dashboard = () => {
     }
   };
 
-  // Navigate to deposit page
   const goToDeposit = () => {
     setShowDepositModal(false);
     navigate('/deposit');
+  };
+
+  const goToVipUpgrade = () => {
+    setShowUpgradeVipModal(false);
+    navigate('/vip');
+  };
+
+  const contactSupport = () => {
+    window.open('https://t.me/support', '_blank');
   };
 
   useEffect(() => {
@@ -260,6 +297,12 @@ const Dashboard = () => {
     fetchTasks();
     fetchTaskHistory();
   }, []);
+
+  useEffect(() => {
+    if (userData && userData.vipLevel?.level === 0) {
+      setShowUpgradeVipModal(true);
+    }
+  }, [userData]);
 
   // Task Modal Component
   const TaskModal = ({ task, onClose, onComplete }) => (
@@ -508,6 +551,88 @@ const Dashboard = () => {
     </div>
   );
 
+  // No Tasks Available Modal
+  const NoTasksModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full border-2 border-red-400/30 shadow-lg shadow-red-400/10 animate-pop-in text-center">
+        <div className="flex justify-center mb-6">
+          <div className="bg-red-500/20 p-4 rounded-full border-2 border-red-400/30">
+            <FiAlertCircle size={48} className="text-red-400" />
+          </div>
+        </div>
+        
+        <h3 className="text-3xl font-extrabold mb-2 bg-gradient-to-r from-red-400 to-pink-500 bg-clip-text text-transparent">
+          NO TASKS AVAILABLE
+        </h3>
+        
+        <p className="text-gray-300 text-lg mb-6">
+          There are currently no tasks available for your account.
+        </p>
+        
+        <p className="text-gray-400 mb-6">
+          Please contact our support team for assistance or check back later.
+        </p>
+        
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={contactSupport}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-blue-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg shadow-blue-500/20"
+          >
+            <FaHeadset /> CONTACT SUPPORT
+          </button>
+          
+          <button
+            onClick={() => setShowNoTasksModal(false)}
+            className="px-6 py-3 border-2 border-gray-600 rounded-xl hover:bg-gray-700 transition-all transform hover:scale-105 font-bold"
+          >
+            CLOSE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Upgrade VIP Modal
+  const UpgradeVipModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full border-2 border-yellow-400/30 shadow-lg shadow-yellow-400/10 animate-pop-in text-center">
+        <div className="flex justify-center mb-6">
+          <div className="bg-yellow-500/20 p-4 rounded-full border-2 border-yellow-400/30">
+            <FiAlertCircle size={48} className="text-yellow-400" />
+          </div>
+        </div>
+        
+        <h3 className="text-3xl font-extrabold mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+          UPGRADE REQUIRED
+        </h3>
+        
+        <p className="text-gray-300 text-lg mb-6">
+          You need to upgrade your VIP level to access tasks.
+        </p>
+        
+        <p className="text-gray-400 mb-6">
+          Basic investors (VIP 0) cannot complete tasks. Please upgrade to at least VIP 1 to start earning.
+        </p>
+        
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={goToVipUpgrade}
+            className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-yellow-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/20"
+          >
+            <FaCoins /> UPGRADE VIP LEVEL
+          </button>
+          
+          <button
+            onClick={() => setShowUpgradeVipModal(false)}
+            className="px-6 py-3 border-2 border-gray-600 rounded-xl hover:bg-gray-700 transition-all transform hover:scale-105 font-bold"
+          >
+            CLOSE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 pb-16 relative overflow-hidden">
       {showConfetti && (
@@ -580,11 +705,28 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Tasks Card */}
-
+          {/* Tasks Stats Card */}
+          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4 text-white">Tasks Summary</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Total Tasks:</span>
+                <span className="font-bold text-white">{taskStats.totalTasks}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Available:</span>
+                <span className="font-bold text-teal-400">{taskStats.availableTasks}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Completed:</span>
+                <span className="font-bold text-purple-400">{taskStats.totalTasks - taskStats.availableTasks}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {message && (
-          <div className={`mb-8 p-4 rounded-xl text-center font-bold ${
+          <div className={`mb-8 p-4 rounded-xl text-center text-white font-bold ${
             message.type === 'error' 
               ? 'bg-red-900/50 border-2 border-red-700/50' 
               : 'bg-green-900/50 border-2 border-green-700/50'
@@ -593,57 +735,38 @@ const Dashboard = () => {
           </div>
         )}
 
-          {tasks.length > 0 && (
-            <div className="mt-2 bg-gray-800/50 rounded-xl p-4 border-2 border-gray-700/50">
-              <h3 className="text-lg font-bold mb-2 text-center text-teal-400">
-                AVAILABLE TASKS: {tasks.length}
-              </h3>
-              <div className="flex flex-wrap justify-center gap-2">
-                {tasks.slice(0, 5).map((task, index) => (
-                  <div key={index} className="w-3 h-3 rounded-full bg-teal-500"></div>
-                ))}
-                {tasks.length > 5 && (
-                  <div className="text-xs text-gray-400">+{tasks.length - 5} more</div>
-                )}
-              </div>
-            </div>
-          )}
-
         <div className="flex flex-col items-center justify-center py-12">
-          <button
-            onClick={getRandomTask}
-            disabled={tasks.length === 0 || loading}
-            className={`relative px-12 py-6 rounded-2xl font-extrabold text-2xl flex items-center gap-4 transition-all duration-300 transform hover:scale-105 shadow-2xl ${
-              tasks.length === 0 
-                ? 'bg-gray-700 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 animate-pulse'
-            }`}
-          >
-            <FiZap className="animate-bounce" />
-            GET TASK
-            <FiZap className="animate-bounce" />
-            {tasks.length > 0 && (
-              <span className="absolute -top-3 -right-3 bg-yellow-500 text-black text-sm font-bold px-3 py-1 rounded-full animate-ping">
-                {tasks.length}
-              </span>
-            )}
-          </button>
-          
-          <p className="mt-6 text-gray-400 text-center max-w-md">
-            Click the button above to get a random task and start earning rewards!
-          </p>
+          <div className="relative mb-6">
             <button
-              onClick={() => setShowHistoryModal(true)}
-              className="mt-4 flex items-center justify-center gap-2 bg-teal-400  px-4 py-2 rounded-lg border border-purple-400/20 transition-colors"
+              onClick={getRandomTask}
+              // disabled={tasks.length === 0 || loading}
+              className={`relative px-12 py-6 rounded-2xl font-extrabold text-2xl flex items-center gap-4 transition-all duration-300 transform hover:scale-105 shadow-2xl ${
+                tasks.length === 0 
+                  ? 'bg-gray-700 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 animate-pulse'
+              }`}
             >
-              <FaHistory /> View History
+              <FiZap className="animate-bounce" />
+              GET TASK
+              <FiZap className="animate-bounce" />
             </button>
+            
+            {/* Task counter badge */}
+            <div className="absolute -top-3 -right-3 bg-yellow-500 text-black text-sm font-bold px-3 py-1 rounded-full animate-pulse">
+              {taskStats.availableTasks}/{taskStats.totalTasks}
+            </div>
+          </div>
           
-        
-
-                   
+          <p className="mt-2 text-gray-400 text-center max-w-md">
+            You have {taskStats.availableTasks} available tasks out of {taskStats.totalTasks} total tasks
+          </p>
           
-        </div>
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="mt-8 flex items-center justify-center gap-2 bg-purple-500/20 hover:bg-purple-500/30 px-6 py-3 rounded-xl border border-purple-400/20 transition-colors"
+          >
+            <FaHistory /> View Task History
+          </button>
         </div>
       </div>
 
@@ -668,8 +791,15 @@ const Dashboard = () => {
         <HistoryModal />
       )}
 
+      {showNoTasksModal && (
+        <NoTasksModal />
+      )}
+
+      {showUpgradeVipModal && (
+        <UpgradeVipModal />
+      )}
+
       <BottomNav />
-      
     </div>
   );
 };
