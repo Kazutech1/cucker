@@ -168,6 +168,82 @@ export const deleteTask = async (req, res) => {
 
 
 
+export const assignTasksToUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        taskLimit: true,
+        userTasks: {
+          where: {
+            status: { in: ['assigned', 'pending'] },
+            task: { depositAmount: null }
+          },
+          select: { id: true }
+        }
+      }
+    });
+
+    console.log(user.taskLimit);
+    
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const existingTaskCount = user.userTasks.length;
+    const tasksToAssignCount = user.taskLimit - existingTaskCount;
+
+    if (tasksToAssignCount <= 0) {
+      return res.status(200).json({ message: 'User already has enough tasks' });
+    }
+
+    const availableTasks = await prisma.task.findMany({
+      where: {
+        depositAmount: null
+      }
+    });
+
+    // Shuffle tasks randomly
+    for (let i = availableTasks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableTasks[i], availableTasks[j]] = [availableTasks[j], availableTasks[i]];
+    }
+
+  const allTasks = await prisma.task.findMany({
+  where: { depositAmount: null }
+});
+
+let tasksToAssign = [];
+
+for (let i = 0; i < user.taskLimit; i++) {
+  const randomTask = allTasks[Math.floor(Math.random() * allTasks.length)];
+  tasksToAssign.push(randomTask);
+}
+
+// Assign each task
+await Promise.all(
+  tasksToAssign.map(task =>
+    prisma.userTask.create({
+      data: {
+        userId,
+        taskId: task.id,
+        status: 'assigned'
+      }
+    })
+  )
+);
+
+
+    res.json({ message: `${tasksToAssign.length} task(s) assigned manually` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assign tasks manually' });
+  }
+};
+
+
+
 // POST /admin/tasks/assign
 export const assignTask = async (req, res) => {
   try {
@@ -328,14 +404,14 @@ export const getUserTasks = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Fetch user's VIP level and task limit
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         taskLimit: true,
-        lastTaskRefresh: true,
         profile: {
           select: {
-            vipLevel: true // <- pull VIP level from related Profile
+            vipLevel: true
           }
         }
       }
@@ -348,56 +424,12 @@ export const getUserTasks = async (req, res) => {
       return res.status(403).json({ error: 'You must upgrade your VIP level to receive tasks.' });
     }
 
-    const taskLimit =  40;
-
-    const now = new Date();
-    const lastRefresh = user.lastTaskRefresh;
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    const shouldRefresh = !lastRefresh || lastRefresh < twentyFourHoursAgo;
-
-    if (shouldRefresh) {
-      await prisma.userTask.deleteMany({
-        where: {
-          userId,
-          status: { in: ['assigned', 'pending'] },
-          task: { depositAmount: null }
-        }
-      });
-
-      const allTasks = await prisma.task.findMany({
-        where: { depositAmount: null }
-      });
-
-      for (let i = allTasks.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allTasks[i], allTasks[j]] = [allTasks[j], allTasks[i]];
-      }
-
-      const tasksToAssign = allTasks.slice(0, taskLimit);
-
-      await Promise.all(
-        tasksToAssign.map(task =>
-          prisma.userTask.create({
-            data: {
-              userId,
-              taskId: task.id,
-              status: 'assigned'
-            }
-          })
-        )
-      );
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: { lastTaskRefresh: now }
-      });
-    }
-
+    // Fetch user's currently assigned normal tasks
     const userTasks = await prisma.userTask.findMany({
       where: {
         userId,
-        status: { in: ['assigned', 'pending'] }
+        status: { in: ['assigned'] },
+        // task: { depositAmount: null }
       },
       include: { task: true }
     });
@@ -408,13 +440,22 @@ export const getUserTasks = async (req, res) => {
       status: ut.status
     }));
 
-    res.json({ tasks });
+    // Count all available (normal) tasks in the system
+    const totalAvailableTasks = await prisma.task.count({
+      where: { depositAmount: null }
+    });
+
+    res.json({
+      tasks,
+      totalTask: user.taskLimit,
+      totalAvailableTasks,
+      userAssignedCount: tasks.length
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get tasks' });
   }
 };
-
 
 
 
