@@ -687,23 +687,23 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="pt-4 mt-4 border-t border-teal-400/20">
+                           <div className="flex justify-between text-teal-400 text-2xl font-semibold ">
+
               <p className="text-gray-400 text-sm">Profit Balance</p>
-              <p className="text-green-400 text-2xl font-semibold">
+                            <p className="text-gray-400 text-sm">Profit Percentage</p>
+
+                        </div>
+
+               <div className="flex justify-between text-teal-400 text-2xl font-semibold ">
+              <p className="text-green-400 text-2xl ">
                 {formatCurrency(profitBalance)}
               </p>
-            </div>
-          </div>
-
-          {/* ROI Card */}
-          <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
-            <h3 className="text-lg font-semibold mb-4 text-white">Daily ROI</h3>
-            <div className="text-center my-6">
-              <div className="text-teal-400 text-4xl font-bold">
                 {userData ? `${getVipRoi(userData.vipLevel?.level || 0)}%` : '0%'}
               </div>
-              <p className="text-gray-400 mt-2">Current Daily Rate</p>
             </div>
+            
           </div>
+
 
           {/* Tasks Stats Card */}
           <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
