@@ -257,5 +257,10 @@ model UserTask {
   task       Task             @relation(fields: [taskId], references: [id])
   taskId     String
   status     UserTaskStatus   @default(assigned)
+  customProfit       Float?   // Overrides task.profit
+  customDepositAmount Float?  // Overrides task.depositAmount
   createdAt  DateTime         @default(now())
 }
+
+
+

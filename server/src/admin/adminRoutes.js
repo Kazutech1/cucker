@@ -41,7 +41,7 @@ import {
 } from './userController.js';
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
-import { assignTask, assignTasksToUser, createTask, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, verifyForcedTask } from './taskController.js';
+import { assignTask, assignTasksToUser, assignTaskToUser, createCustomUserTask, createTask,  deactivateUserTasks, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, updateUsersTask, updateUserTask, verifyForcedTask } from './taskController.js';
 // import { createTask, deleteTask, getAllTasks, getAllUsersTaskStats, getUserTaskHistorys, resetAllUserTasks, resetUserTasks, setUserTaskAmount, updateTask } from './taskController.js';
 // import { createAppReview, createTask, deleteAppReview, deleteTask, getAllTasks, getAppReviews, getTaskAnalytics, getTaskSettings, getUsersWithPendingTasks, getUserTaskStats, resetAllUserTasks, resetUserTasks, setUserTaskLimit, updateAppReview, updateTask, updateTaskSettings, updateUserTaskLimit } from './taskController.js';
 
@@ -151,6 +151,15 @@ router.delete('/tasks/:id',  deleteTask);
 router.post('/tasks/assign',  assignTask);
 router.post('/task/:userId/assign-tasks', assignTasksToUser);
 
+router.post('/admin/user-tasks/assign', assignTaskToUser);
+router.put('/admin/user-tasks/:id', updateUsersTask);
+router.post('/user-tasks/custom', createCustomUserTask);
+// Add to your admin task routes
+router.delete('/users/:userId/deactivate-tasks', deactivateUserTasks);
+
+
+
+
 
 
 /** --- ADMIN VERIFY FORCED TASK --- **/
@@ -161,6 +170,9 @@ router.put('/users/:id/task-limit',  updateTaskLimit);
 
 
 router.get('/users/:id/task-history',  getAllUserTasks)
+
+router.put('/user/tasks/:id', updateUserTask);
+
 
 
 

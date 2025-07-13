@@ -244,6 +244,147 @@ await Promise.all(
 
 
 
+
+export const createCustomUserTask = async (req, res) => {
+  try {
+    const { userId, taskId, profit, depositAmount } = req.body;
+
+    console.log(userId, taskId, profit, depositAmount);
+    
+
+    // Validate required inputs
+    if (!userId || !taskId) {
+      return res.status(400).json({ error: 'userId and taskId are required' });
+    }
+
+    // Confirm task exists
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) {
+      return res.status(404).json({ error: 'Original task not found' });
+    }
+
+    // Assign custom version of task to user
+    const userTask = await prisma.userTask.create({
+      data: {
+        userId,
+        taskId,
+        status: 'assigned',
+        customProfit: parseFloat(profit),
+        customDepositAmount: depositAmount === null ? null : parseFloat(depositAmount)
+      },
+      include: {
+        task: true
+      }
+    });
+
+    res.json({
+      message: 'Custom task assigned to user',
+      userTask
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assign custom task' });
+  }
+};
+
+
+
+
+// DELETE /api/admin/tasks/:id/deactivate
+
+// DELETE /api/admin/users/:userId/deactivate-tasks
+export const deactivateUserTasks = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const deleted = await prisma.userTask.deleteMany({
+      where: {
+        userId,
+        status: {
+          in: ['assigned', 'pending'] // remove anything not completed or rejected
+        }
+      }
+    });
+
+    res.json({ message: 'User tasks deactivated', count: deleted.count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to deactivate user tasks' });
+  }
+};
+
+
+
+
+export const assignTaskToUser = async (req, res) => {  //THIS IS THE BNEW ASSIGN TASK FOR USERS, SO ADMINS CAN CRETAE AND EDIT SPECIFIC USERS TASKS
+  try {
+    const { userId, taskId, status = 'assigned' } = req.body;
+
+    // Validate task existence
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    // Assign the task to the user
+    const userTask = await prisma.userTask.create({
+      data: {
+        userId,
+        taskId,
+        status
+      },
+      include: {
+        user: { select: { email: true } },
+        task: true
+      }
+    });
+
+    res.json({ message: 'Task assigned to user successfully', userTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assign task' });
+  }
+};
+
+
+
+
+export const updateUsersTask = async (req, res) => {
+  try {
+    const { id } = req.params; // userTaskId
+    const { profit, depositAmount } = req.body;
+
+    const userTask = await prisma.userTask.findUnique({
+      where: { id },
+      include: { task: true }
+    });
+
+    if (!userTask) {
+      return res.status(404).json({ error: 'User task not found' });
+    }
+
+    if (['completed', 'rejected'].includes(userTask.status)) {
+      return res.status(400).json({ error: 'Cannot edit a completed or rejected task' });
+    }
+
+    const updatedTask = await prisma.task.update({
+      where: { id: userTask.taskId },
+      data: {
+        ...(profit !== undefined && { profit: parseFloat(profit) }),
+        ...(depositAmount !== undefined && {
+          depositAmount: depositAmount === null ? null : parseFloat(depositAmount)
+        })
+      }
+    });
+
+    res.json({ message: 'User task updated successfully', task: updatedTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update user task' });
+  }
+};
+
+
+
+
 // POST /admin/tasks/assign
 export const assignTask = async (req, res) => {
   try {
@@ -268,15 +409,22 @@ export const assignTask = async (req, res) => {
 };
 
 
+
+
+
 export const getAllUserTasks = async (req, res) => {
   try {
+    const userId = req.params.id;
+
     const userTasks = await prisma.userTask.findMany({
+      where: { userId }, // <- filter by userId
       include: {
         task: true,
         user: {
           select: {
             id: true,
-            email: true
+            email: true,
+            fullName: true // or name, if you're using 'name'
           }
         }
       },
@@ -288,7 +436,7 @@ export const getAllUserTasks = async (req, res) => {
     const formatted = userTasks.map(entry => ({
       userTaskId: entry.id,
       userId: entry.user.id,
-      userName: entry.user.name,
+      userName: entry.user.fullName, // match this with your model
       email: entry.user.email,
       taskId: entry.taskId,
       appName: entry.task.appName,
@@ -304,6 +452,42 @@ export const getAllUserTasks = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch user tasks' });
+  }
+};
+
+
+
+export const updateUserTask = async (req, res) => {
+  try {
+    const { id } = req.params; // userTaskId
+    const { profit, depositAmount } = req.body;
+
+    // Check if the userTask exists and is editable
+    const userTask = await prisma.userTask.findUnique({
+      where: { id },
+      include: { task: true }
+    });
+
+    if (!userTask) {
+      return res.status(404).json({ error: 'User task not found' });
+    }
+
+    if (['completed', 'rejected'].includes(userTask.status)) {
+      return res.status(400).json({ error: 'Cannot edit a completed or rejected task' });
+    }
+
+    const updatedTask = await prisma.task.update({
+      where: { id: userTask.taskId },
+      data: {
+        ...(profit !== undefined && { profit: parseFloat(profit) }),
+        ...(depositAmount !== undefined && { depositAmount: depositAmount ? parseFloat(depositAmount) : null })
+      }
+    });
+
+    res.json({ message: 'Task linked to userTask updated successfully', task: updatedTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update task info from user task' });
   }
 };
 
