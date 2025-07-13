@@ -19,9 +19,9 @@ import ADeposits from './admin/components/Deposit';
 import ANotifications from './admin/components/Notifications';
 import AWallets from './admin/components/Wallet';
 import VipManagement from './admin/components/Vip';
-import ATasks from './admin/components/Tasks';
-import ATaskz from './admin/components/UesrManagement';
-import UserTasks from './admin/components/TasksManagement';
+// import ATasks from './admin/components/Tasks';
+// import ATaskz from './admin/components/UesrManagement';
+// import UserTasks from './admin/components/TasksManagement';
 import ATests from './admin/components/Test';
 import AUsers from './admin/components/TasksManagement';
 

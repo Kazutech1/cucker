@@ -1,350 +1,225 @@
-import { useState, useEffect } from 'react';
-import { FiUser, FiEye, FiCheck, FiX, FiPlus, FiEdit2, FiClock, FiFilter, FiChevronLeft, FiMenu, FiDollarSign, FiActivity, FiAward, FiCreditCard, FiCalendar } from 'react-icons/fi';
+import { FiUser, FiEye, FiCheck, FiX, FiPlus, FiEdit2, FiClock, FiFilter, FiChevronLeft, FiMenu, FiDollarSign, FiActivity, FiAward, FiCreditCard, FiCalendar, FiEdit, FiSearch } from 'react-icons/fi';
 import Sidebar from './Sidebar';
+import { FaCoins } from 'react-icons/fa';
+import useUserManagement from '../../../hooks/useUsers';
+import AssignCustomTaskModal from './AssignCustomTaskModal';
+import { useEffect, useState } from 'react';
 
 const AUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [comboTasks, setComboTasks] = useState([]);
-  const [isAssignTaskModalOpen, setIsAssignTaskModalOpen] = useState(false);
-  const [isUpdateBalanceModalOpen, setIsUpdateBalanceModalOpen] = useState(false);
-  const [isUpdateTaskLimitModalOpen, setIsUpdateTaskLimitModalOpen] = useState(false);
-  const [isVerifyTaskModalOpen, setIsVerifyTaskModalOpen] = useState(false);
-  const [userTaskHistory, setUserTaskHistory] = useState([]);
-  const [taskAssignmentData, setTaskAssignmentData] = useState({
-    taskId: '',
-    isCombo: false
-  });
-  const [balanceUpdateData, setBalanceUpdateData] = useState({
-    balance: '',
-    profitBalance: ''
-  });
-  const [taskLimitData, setTaskLimitData] = useState({
-    taskLimit: ''
-  });
-  const [verificationData, setVerificationData] = useState({
-    userTaskId: '',
-    approve: true
-  });
-  const [filters, setFilters] = useState({
-    search: '',
-    role: ''
-  });
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const {
+    // State
+    users,
+    loading,
+    error,
+    selectedUser,
+    tasks,
+    comboTasks,
+    isAssignTaskModalOpen,
+    isUpdateBalanceModalOpen,
+    isUpdateTaskLimitModalOpen,
+    isVerifyTaskModalOpen,
+    isEditTaskModalOpen,
+    isMobileSidebarOpen,
+    editableTaskDetails,
+    userTaskHistory,
+    taskAssignmentData,
+    balanceUpdateData,
+    taskLimitData,
+    verificationData,
+    editTaskData,
+    filters,
+
+    // Handlers
+    handleFilterChange,
+    handleTaskAssignmentChange,
+    handleBalanceUpdateChange,
+    handleTaskLimitChange,
+    handleVerificationChange,
+    handleEditTaskChange,
+    handleEditableTaskChange,
+
+    // Actions
+    fetchUserDetails,
+    assignTask,
+    assignTasks,
+    addBonus,
+    updateTask,
+    updateTasks,
+    updateBalance,
+    updateTaskLimit,
+    verifyTask,
+
+    // Modal controls
+    openAssignTaskModal,
+    openUpdateBalanceModal,
+    openUpdateTaskLimitModal,
+    openVerifyTaskModal,
+    openEditTaskModal,
+    closeModal,
+    toggleMobileSidebar,
+    setSelectedUser,
+    setTaskAssignmentData,
+    setEditableTaskDetails,
+
+    // Helpers
+    formatCurrency,
+    formatDate,
+    getStatusBadge
+  } = useUserManagement();
+
+  const [taskList, setTaskList] = useState([]);
+  const [isCustomTaskModalOpen, setCustomTaskModalOpen] = useState(false);
+  const [isFetchingTasks, setIsFetchingTasks] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [tasksPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter tasks based on search term
+  const filteredTasks = userTaskHistory.filter(task => 
+    task.appName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.status?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Get current tasks
+  const indexOfLastTask = currentPage * tasksPerPage;
+  const indexOfFirstTask = indexOfLastTask - tasksPerPage;
+  const currentTasks = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Generate page numbers with ellipsis
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      const leftBound = Math.max(1, currentPage - 2);
+      const rightBound = Math.min(totalPages, currentPage + 2);
+
+      if (leftBound > 1) {
+        pageNumbers.push(1);
+        if (leftBound > 2) {
+          pageNumbers.push('...');
+        }
+      }
+
+      for (let i = leftBound; i <= rightBound; i++) {
+        pageNumbers.push(i);
+      }
+
+      if (rightBound < totalPages) {
+        if (rightBound < totalPages - 1) {
+          pageNumbers.push('...');
+        }
+        pageNumbers.push(totalPages);
+      }
+    }
+
+    return pageNumbers;
+  };
 
   useEffect(() => {
-    fetchUsers();
-    fetchTasks();
-  }, [filters]);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.append('search', filters.search);
-      if (filters.role) queryParams.append('role', filters.role);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users?${queryParams.toString()}`, {
+    if (isCustomTaskModalOpen && selectedUser?.id) {
+      setIsFetchingTasks(true);
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/tasks`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+          Authorization: `Bearer ${localStorage.getItem('admin_token')}`
         }
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) throw new Error('Unauthorized: Invalid or missing token');
-        throw new Error('Failed to fetch users');
-      }
-      
-      const data = await response.json();
-      setUsers(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/tasks`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch tasks');
-      
-      const data = await response.json();
-      setTasks(data.tasks.filter(task => task.depositAmount === null));
-      setComboTasks(data.tasks.filter(task => task.depositAmount !== null));
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const fetchUserDetails = async (userId) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch user details');
-      
-      const data = await response.json();
-      setSelectedUser(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const openAssignTaskModal = (isCombo = false) => {
-    setTaskAssignmentData({
-      taskId: '',
-      isCombo
-    });
-    setIsAssignTaskModalOpen(true);
-  };
-
-  const openUpdateBalanceModal = () => {
-    setBalanceUpdateData({
-      balance: selectedUser.balance,
-      profitBalance: selectedUser.profitBalance
-    });
-    setIsUpdateBalanceModalOpen(true);
-  };
-
-  const openUpdateTaskLimitModal = () => {
-    setTaskLimitData({
-      taskLimit: selectedUser.taskLimit
-    });
-    setIsUpdateTaskLimitModalOpen(true);
-  };
-
-  const openVerifyTaskModal = (userTaskId) => {
-    setVerificationData({
-      userTaskId,
-      approve: true
-    });
-    setIsVerifyTaskModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsAssignTaskModalOpen(false);
-    setIsUpdateBalanceModalOpen(false);
-    setIsUpdateTaskLimitModalOpen(false);
-    setIsVerifyTaskModalOpen(false);
-  };
-
-  const handleTaskAssignmentChange = (e) => {
-    const { name, value } = e.target;
-    setTaskAssignmentData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleBalanceUpdateChange = (e) => {
-    const { name, value } = e.target;
-    setBalanceUpdateData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTaskLimitChange = (e) => {
-    const { name, value } = e.target;
-    setTaskLimitData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleVerificationChange = (e) => {
-    const { name, value } = e.target;
-    setVerificationData(prev => ({ ...prev, [name]: value === 'true' }));
-  };
-
-  const assignTask = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/tasks/assign`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          taskId: taskAssignmentData.taskId,
-          userIds: [selectedUser.id]
+      })
+        .then(res => res.json())
+        .then(data => {
+          setTaskList(data.tasks || []);
+          setIsFetchingTasks(false);
         })
-      });
-      
-      if (!response.ok) throw new Error('Failed to assign task');
-      
-      const data = await response.json();
-      alert(`Successfully assigned task to user. ${data.assigned} assignments made.`);
-      closeModal();
-      fetchUserDetails(selectedUser.id);
-    } catch (err) {
-      setError(err.message);
+        .catch(err => {
+          console.error(err);
+          setIsFetchingTasks(false);
+        });
     }
-  };
+  }, [isCustomTaskModalOpen, selectedUser?.id]);
 
+  const handleDeactivateUserTasks = async (userId) => {
+  if (!confirm('Are you sure you want to deactivate this user’s tasks?')) return;
 
-
-  const assignTasks = async () => {
   try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/task/${selectedUser.id}/assign-tasks`, {
-      method: 'POST',
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${userId}/deactivate-tasks`, {
+      method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
       }
     });
 
     const data = await res.json();
-    alert(data.message);
-    fetchUserDetails(selectedUser.id);
-    // Optionally refresh user task list
+    if (!res.ok) throw new Error(data.error || 'Failed to deactivate tasks');
+
+    alert(`${data.count} tasks removed.`);
+    // optionally refresh user task history here
   } catch (err) {
-    alert('Failed to assign tasks');
+    alert(err.message);
   }
 };
 
 
-
-
-  const updateBalance = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          balance: parseFloat(balanceUpdateData.balance),
-          profitBalance: parseFloat(balanceUpdateData.profitBalance)
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to update balance');
-      
-      const data = await response.json();
-      alert('Balance updated successfully');
-      closeModal();
-      fetchUserDetails(selectedUser.id);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const updateTaskLimit = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${selectedUser.id}/task-limit`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          taskLimit: parseInt(taskLimitData.taskLimit)
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to update task limit');
-      
-      const data = await response.json();
-      alert('Task limit updated successfully');
-      closeModal();
-      fetchUserDetails(selectedUser.id);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const getUserTaskHistory = async (userId) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${userId}/task-history`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch user task history');
-
-      const data = await response.json();
-      setUserTaskHistory(data.tasks);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  useEffect(() => {
+  // Enhanced action handlers with refresh
+  const handleUpdateBalance = async () => {
+    await updateBalance();
     if (selectedUser?.id) {
-      getUserTaskHistory(selectedUser.id);
-    }
-  }, [selectedUser]);
-
-  const verifyTask = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/user-tasks/${verificationData.userTaskId}/verify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          approve: verificationData.approve
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to verify task');
-      
-      const data = await response.json();
-      alert(data.message);
-      closeModal();
-      fetchUserDetails(selectedUser.id);
-    } catch (err) {
-      setError(err.message);
+      await fetchUserDetails(selectedUser.id);
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleAssignTask = async () => {
+    await assignTask();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
     }
   };
 
-  const toggleMobileSidebar = () => {
-    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  const handleUpdateTasks = async () => {
+    await updateTasks();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
+    }
+  };
+
+  const handleVerifyTask = async () => {
+    await verifyTask();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
+    }
+  };
+
+  const handleAddBonus = async () => {
+    await addBonus();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
+    }
+  };
+
+  const handleAssignTasks = async () => {
+    await assignTasks();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
+    }
+  };
+
+  const handleUpdateTaskLimit = async () => {
+    await updateTaskLimit();
+    if (selectedUser?.id) {
+      await fetchUserDetails(selectedUser.id);
+    }
   };
 
   return (
@@ -353,7 +228,7 @@ const AUsers = () => {
       <Sidebar isMobileOpen={isMobileSidebarOpen} toggleMobileOpen={toggleMobileSidebar} />
       
       {/* Main Content */}
-       <div className="flex-1 p-4 md:p-4 md:ml-64">
+      <div className="flex-1 p-4 md:p-4 md:ml-64">
         {/* Top Navigation */}
         <header className="bg-white border-b border-gray-200">
           <div className="px-4 py-3 flex items-center justify-between">
@@ -538,6 +413,12 @@ const AUsers = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
+                        onClick={handleAddBonus}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-150 flex items-center"
+                      >
+                        <FaCoins className="mr-2" /> Add $10 Bonus
+                      </button>
+                      <button
                         onClick={openUpdateBalanceModal}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150 flex items-center"
                       >
@@ -648,7 +529,7 @@ const AUsers = () => {
 
                   <div className="mt-8 bg-gray-50 p-5 rounded-xl border border-gray-200">
                     <h3 className="text-sm font-medium text-gray-600 mb-3">Activity Summary</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div className="text-center">
                         <p className="text-sm text-gray-500">Joined Date</p>
                         <p className="text-sm font-medium text-gray-900">{formatDate(selectedUser.createdAt)}</p>
@@ -659,6 +540,10 @@ const AUsers = () => {
                       </div>
                       <div className="text-center">
                         <p className="text-sm text-gray-500">Withdrawals</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedUser._count?.withdrawal || 0}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-500">Referrals</p>
                         <p className="text-sm font-medium text-gray-900">{selectedUser._count?.withdrawal || 0}</p>
                       </div>
                       <div className="text-center">
@@ -678,92 +563,179 @@ const AUsers = () => {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-2 md:mb-0">Task Management</h2>
                     <div className="flex flex-wrap gap-2">
-                        <button
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-150 flex items-center"
-                          onClick={() => assignTasks()}
-                        >
-                          <FiPlus className="mr-2" /> Assign All Tasks
-                        </button>
                       <button
-                        onClick={() => openAssignTaskModal(false)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150 flex items-center"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-150 flex items-center"
+                        onClick={() => handleDeactivateUserTasks(selectedUser?.id)}
                       >
-                        <FiPlus className="mr-2" /> Assign Normal Task
+                        Deactivate Task
                       </button>
                       <button
-                        onClick={() => openAssignTaskModal(true)}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-150 flex items-center"
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-150 flex items-center"
+                        onClick={handleAssignTasks}
                       >
-                        <FiPlus className="mr-2" /> Assign Combo Task
+                        <FiPlus className="mr-2" /> Reset User Tasks
+                      </button>
+                      <button
+                        onClick={() => setCustomTaskModalOpen(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                        disabled={!selectedUser?.id || loading}
+                      >
+                        <FiPlus className="mr-2" /> Assign Tasks
                       </button>
                     </div>
                   </div>
 
-                
-
-
-                  {/* Task History */}
-                  <div>
-                    <h3 className="text-md font-medium text-gray-900 mb-4">Task History</h3>
-                    {userTaskHistory && userTaskHistory.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {userTaskHistory.map((task) => (
-                              <tr key={task.taskId} className="hover:bg-gray-50 transition-colors duration-150">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">{task.appName}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    task.depositAmount ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {task.depositAmount ? 'Combo' : 'Normal'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(task.status)}`}>
-                                    {task.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {formatCurrency(task.profit)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {formatDate(task.date)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  {task.depositAmount !== null && task.status !== 'completed' && task.status !== 'rejected' && (
-                                    <button
-                                      onClick={() => openVerifyTaskModal(task.userTaskId)}
-                                      className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
-                                    >
-                                      Verify
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  {/* Task History with Pagination */}
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                        <h2 className="text-lg font-semibold text-gray-900">Task History</h2>
+                        <div className="mt-2 md:mt-0">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="Search tasks..."
+                              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <FiSearch className="text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 className="mt-2 text-sm font-medium text-gray-900">No task history</h3>
-                        <p className="mt-1 text-sm text-gray-500">This user hasn't completed any tasks yet.</p>
-                      </div>
-                    )}
+
+                      {filteredTasks.length > 0 ? (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deposit</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {currentTasks.map((task) => (
+                                  <tr key={task.taskId} className="hover:bg-gray-50 transition-colors duration-150">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="text-sm font-medium text-gray-900">{task.appName}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        task.depositAmount ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                                      }`}>
+                                        {task.depositAmount ? 'Combo' : 'Normal'}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(task.status)}`}>
+                                        {task.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      {formatCurrency(task.profit)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      {formatCurrency(task.depositAmount)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      {formatDate(task.date)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                      {task.depositAmount !== null && task.status !== 'completed' && task.status !== 'rejected' && (
+                                        <button
+                                          onClick={() => openVerifyTaskModal(task.userTaskId)}
+                                          className="text-blue-600 hover:text-blue-900 transition-colors duration-150"
+                                        >
+                                          Verify
+                                        </button>
+                                      )}
+                                      {task.status !== 'completed' && task.status !== 'rejected' && (
+                                        <button
+                                          onClick={() => openEditTaskModal(task)}
+                                          className="text-indigo-600 hover:text-indigo-900"
+                                        >
+                                          <FiEdit />
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination Controls */}
+                          <div className="flex items-center justify-between mt-6">
+                            <div className="text-sm text-gray-700">
+                              Showing <span className="font-medium">{indexOfFirstTask + 1}</span> to{' '}
+                              <span className="font-medium">{Math.min(indexOfLastTask, filteredTasks.length)}</span> of{' '}
+                              <span className="font-medium">{filteredTasks.length}</span> tasks
+                            </div>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className={`px-3 py-1 rounded-md text-sm ${
+                                  currentPage === 1
+                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                    : 'text-gray-700 bg-white hover:bg-gray-50 border border-gray-300'
+                                }`}
+                              >
+                                Previous
+                              </button>
+
+                              {getPageNumbers().map((number, index) => (
+                                number === '...' ? (
+                                  <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-700">...</span>
+                                ) : (
+                                  <button
+                                    key={number}
+                                    onClick={() => setCurrentPage(number)}
+                                    className={`px-3 py-1 rounded-md text-sm ${
+                                      currentPage === number
+                                        ? 'text-white bg-blue-600 hover:bg-blue-700'
+                                        : 'text-gray-700 bg-white hover:bg-gray-50 border border-gray-300'
+                                    }`}
+                                  >
+                                    {number}
+                                  </button>
+                                )
+                              ))}
+
+                              <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className={`px-3 py-1 rounded-md text-sm ${
+                                  currentPage === totalPages
+                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                    : 'text-gray-700 bg-white hover:bg-gray-50 border border-gray-300'
+                                }`}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-8">
+                          <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
+                          <h3 className="mt-2 text-sm font-medium text-gray-900">
+                            {searchTerm ? 'No matching tasks found' : 'No task history available'}
+                          </h3>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {searchTerm ? 'Try a different search term' : 'This user has not completed any tasks yet'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -778,9 +750,55 @@ const AUsers = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full transform transition-all">
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-4">
-                Assign {taskAssignmentData.isCombo ? 'Combo' : 'Normal'} Task
+                {taskAssignmentData.isCombo ? 'Edit/Assign Combo Task' : 'Assign Normal Task'}
               </h2>
-              <div className="mb-6">
+              
+              {/* Tabbed interface */}
+              <div className="flex mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => {
+                    setTaskAssignmentData(prev => ({
+                      ...prev,
+                      isCombo: false,
+                      taskId: ''
+                    }));
+                    setEditableTaskDetails({
+                      profit: '',
+                      depositAmount: ''
+                    });
+                  }}
+                  className={`flex-1 py-2 px-4 text-sm font-medium ${
+                    !taskAssignmentData.isCombo 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Normal Tasks
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskAssignmentData(prev => ({
+                      ...prev,
+                      isCombo: true,
+                      taskId: ''
+                    }));
+                    setEditableTaskDetails({
+                      profit: '',
+                      depositAmount: ''
+                    });
+                  }}
+                  className={`flex-1 py-2 px-4 text-sm font-medium ${
+                    taskAssignmentData.isCombo 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Combo Tasks
+                </button>
+              </div>
+
+              {/* Task selection */}
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Task
                 </label>
@@ -788,16 +806,73 @@ const AUsers = () => {
                   name="taskId"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={taskAssignmentData.taskId}
-                  onChange={handleTaskAssignmentChange}
+                  onChange={(e) => {
+                    const allTasks = [...tasks, ...comboTasks];
+                    const selectedTask = allTasks.find(t => t.id === e.target.value);
+                    
+                    setTaskAssignmentData(prev => ({
+                      ...prev,
+                      taskId: e.target.value
+                    }));
+                    
+                    if (selectedTask) {
+                      setEditableTaskDetails({
+                        profit: selectedTask.profit,
+                        depositAmount: selectedTask.depositAmount || ''
+                      });
+                    }
+                  }}
                 >
                   <option value="">Select a task</option>
-                  {(taskAssignmentData.isCombo ? comboTasks : tasks).map(task => (
-                    <option key={task.id} value={task.id}>
-                      {task.appName} ({formatCurrency(task.profit)})
-                    </option>
-                  ))}
+                  {(taskAssignmentData.isCombo 
+                    ? [...tasks, ...comboTasks]  // Show all tasks in Combo tab
+                    : tasks)                     // Show only normal tasks in Normal tab
+                    .map(task => (
+                      <option key={task.id} value={task.id}>
+                        {task.appName} ({formatCurrency(task.profit)})
+                        {task.depositAmount && ` [Combo]`}
+                      </option>
+                    ))}
                 </select>
               </div>
+
+              {/* Editable fields (shown for Combo tab, regardless of task type) */}
+              {taskAssignmentData.isCombo && taskAssignmentData.taskId && (
+                <div className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium">Task Details</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Profit ($)
+                    </label>
+                    <input
+                      type="number"
+                      name="profit"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                      value={editableTaskDetails.profit}
+                      onChange={handleEditableTaskChange}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Deposit Amount ($) {!editableTaskDetails.depositAmount && "(will convert to combo)"}
+                    </label>
+                    <input
+                      type="number"
+                      name="depositAmount"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                      value={editableTaskDetails.depositAmount}
+                      onChange={handleEditableTaskChange}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={closeModal}
@@ -806,15 +881,45 @@ const AUsers = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={assignTask}
-                  disabled={!taskAssignmentData.taskId}
-                  className={`px-4 py-2.5 rounded-lg text-white ${taskAssignmentData.isCombo ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50 transition-colors duration-150`}
+                  onClick={taskAssignmentData.isCombo ? handleUpdateTasks : handleAssignTask}
+                  disabled={!taskAssignmentData.taskId || 
+                    (taskAssignmentData.isCombo && !editableTaskDetails.profit)}
+                  className={`px-4 py-2.5 rounded-lg text-white ${
+                    taskAssignmentData.isCombo 
+                      ? 'bg-purple-600 hover:bg-purple-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } disabled:opacity-50 transition-colors duration-150`}
                 >
-                  Assign Task
+                  {taskAssignmentData.isCombo ? 'Update Task' : 'Assign Task'}
                 </button>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Custom Task Modal */}
+      {isCustomTaskModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          {isFetchingTasks ? (
+            <div className="bg-white rounded-lg shadow-xl p-6 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <span className="ml-3">Loading tasks...</span>
+            </div>
+          ) : (
+            <AssignCustomTaskModal
+              isOpen={true}
+              onClose={() => setCustomTaskModalOpen(false)}
+              userId={selectedUser?.id || "0"}
+              tasks={taskList}
+              onSuccess={async (newTask) => {
+                if (selectedUser?.id) {
+                  await fetchUserDetails(selectedUser.id);
+                }
+                setCustomTaskModalOpen(false);
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -866,7 +971,7 @@ const AUsers = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={updateBalance}
+                  onClick={handleUpdateBalance}
                   className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150"
                 >
                   Update Balance
@@ -904,7 +1009,7 @@ const AUsers = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={updateTaskLimit}
+                  onClick={handleUpdateTaskLimit}
                   disabled={!taskLimitData.taskLimit || taskLimitData.taskLimit < 1}
                   className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-150"
                 >
@@ -965,7 +1070,7 @@ const AUsers = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={verifyTask}
+                  onClick={handleVerifyTask}
                   className={`px-4 py-2.5 rounded-lg text-white ${verificationData.approve ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} transition-colors duration-150`}
                 >
                   {verificationData.approve ? 'Approve' : 'Reject'}

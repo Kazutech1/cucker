@@ -4,7 +4,7 @@ import {
   FiRefreshCw, FiLayers, FiAlertCircle, FiCheck, 
   FiX, FiClock, FiDollarSign, FiZap 
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Confetti from 'react-confetti';
 import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
@@ -615,12 +615,14 @@ const Dashboard = () => {
         </p>
         
         <div className="flex flex-col gap-3">
-          <button
-            onClick={goToVipUpgrade}
+          <Link to='/level'>
+           <button
             className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-yellow-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/20"
           >
             <FaCoins /> UPGRADE VIP LEVEL
           </button>
+          </Link>
+         
           
           <button
             onClick={() => setShowUpgradeVipModal(false)}
