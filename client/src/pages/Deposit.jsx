@@ -1,110 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCopy, FiCheck } from 'react-icons/fi';
+import { FiArrowLeft, FiCopy, FiCheck, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import QRCode from 'react-qr-code';
+import useDeposit from '../../hooks/useDeposit';
+import Toast from '../components/Toast';
 
 const DepositPage = () => {
   const navigate = useNavigate();
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [availableWallets, setAvailableWallets] = useState({});
-  const [userBalance, setUserBalance] = useState(0);
-  const [minDeposit, setMinDeposit] = useState(10);
-  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const {
+    loading,
+    error,
+    getDepositAddresses,
+    submitDepositProof
+  } = useDeposit();
+
+  const [availableWallets, setAvailableWallets] = useState(null);
+  const [expandedCurrency, setExpandedCurrency] = useState(null);
   const [formData, setFormData] = useState({
     amount: '',
-    currency: '',
     txHash: '',
     proofImage: null
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [error, setError] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(null);
+  const [toast, setToast] = useState({
+    show: false,
+    message: '',
+    type: 'info'
+  });
 
-  // Fetch user profile to get balance
-  const fetchUserProfile = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.message === 'Profile retrieved successfully') {
-          setUserBalance(parseFloat(data.user.balance).toFixed(2));
-          return data.user;
-        }
-      }
-      throw new Error('Failed to fetch profile');
-    } catch (error) {
-      console.error('Profile fetch error:', error);
-      setError('Failed to load profile data. Please try again.');
-      navigate('/login');
-    }
-  };
-
-  // Fetch deposit info and populate wallets
-  const fetchDepositInfo = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/deposit/info`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch deposit info');
-      }
-
-      const data = await response.json();
-      
-      if (data.depositWallets && data.depositWallets.length > 0) {
-        const walletsObj = {};
-        data.depositWallets.forEach(wallet => {
-          walletsObj[wallet.currency] = {
-            address: wallet.address,
-            network: wallet.network
-          };
+  // Fetch deposit info on component mount
+  useEffect(() => {
+    const fetchWallets = async () => {
+      try {
+        const addresses = await getDepositAddresses();
+        setAvailableWallets(addresses);
+      } catch (err) {
+        console.error('Failed to load deposit addresses:', err);
+        setToast({
+          show: true,
+          message: 'Failed to load deposit addresses',
+          type: 'error'
         });
-        setAvailableWallets(walletsObj);
-      } else {
-        throw new Error('No deposit wallets available');
       }
-      
-      if (data.minDeposit) {
-        setMinDeposit(data.minDeposit);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error fetching deposit info:', error);
-      setError('Failed to load deposit information. Please try again.');
-    }
-  };
+    };
+    fetchWallets();
+  }, []);
 
-  // Handle crypto currency change
-  const handleCurrencyChange = (e) => {
-    const currency = e.target.value;
-    setSelectedCurrency(currency);
-    setFormData({...formData, currency});
+  // Toggle currency expansion
+  const toggleCurrency = (currency) => {
+    setExpandedCurrency(expandedCurrency === currency ? null : currency);
+    setCopySuccess(null);
   };
 
   // Copy address to clipboard
-  const copyAddressToClipboard = async () => {
-    if (!selectedCurrency || !availableWallets[selectedCurrency]) return;
-    
+  const copyAddressToClipboard = async (currency) => {
     try {
-      await navigator.clipboard.writeText(availableWallets[selectedCurrency].address);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      await navigator.clipboard.writeText(availableWallets[currency]);
+      setCopySuccess(currency);
+      setToast({
+        show: true,
+        message: 'Address copied to clipboard!',
+        type: 'success'
+      });
+      setTimeout(() => setCopySuccess(null), 2000);
     } catch (err) {
       console.error('Failed to copy address:', err);
-      setError('Failed to copy address. Please copy manually.');
+      setToast({
+        show: true,
+        message: 'Failed to copy address',
+        type: 'error'
+      });
     }
   };
 
@@ -120,89 +85,45 @@ const DepositPage = () => {
   };
 
   // Submit deposit form
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (currency, e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-
     try {
-      // Validation
-      if (parseFloat(formData.amount) < minDeposit) {
-        throw new Error(`Minimum deposit amount is $${minDeposit}`);
-      }
-      
-      if (!formData.currency) {
-        throw new Error('Please select a cryptocurrency');
-      }
-      
-      if (!formData.txHash) {
-        throw new Error('Please enter your transaction hash');
-      }
-      
-      // Create form data
-      const submissionData = new FormData();
-      submissionData.append('amount', formData.amount);
-      submissionData.append('currency', formData.currency);
-      submissionData.append('txHash', formData.txHash);
-      if (formData.proofImage) submissionData.append('proofImage', formData.proofImage);
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/deposit/submit`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: submissionData
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Deposit submission failed');
-      }
-      
+      await submitDepositProof({
+        amount: formData.amount,
+        currency: currency,
+        txHash: formData.txHash
+      }, formData.proofImage);
+
       // Reset form on success
       setFormData({
         amount: '',
-        currency: '',
         txHash: '',
         proofImage: null
       });
-      setSelectedCurrency('');
-      
-      // Refresh balance
-      await fetchUserProfile();
-      
-      // Show success message
-      alert(data.message || 'Deposit submitted successfully! Your deposit is being reviewed.');
-      
-    } catch (error) {
-      console.error('Deposit error:', error);
-      setError(error.message);
-    } finally {
-      setIsSubmitting(false);
+      setExpandedCurrency(null);
+
+      setToast({
+        show: true,
+        message: 'Deposit submitted successfully! Your deposit is being reviewed.',
+        type: 'success'
+      });
+    } catch (err) {
+      console.error('Deposit submission error:', err);
+      setToast({
+        show: true,
+        message: err.message || 'Failed to submit deposit',
+        type: 'error'
+      });
     }
   };
 
-  // Initialize page
-  useEffect(() => {
-    if (!token) {
-      navigate('/');
-      return;
-    }
-
-    const initializePage = async () => {
-      try {
-        await Promise.all([
-          fetchUserProfile(),
-          fetchDepositInfo()
-        ]);
-      } catch (error) {
-        console.error('Page initialization error:', error);
-      }
-    };
-
-    initializePage();
-  }, [token, navigate]);
+  if (!availableWallets) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-400"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16">
@@ -214,7 +135,7 @@ const DepositPage = () => {
         >
           <FiArrowLeft className="w-6 h-6 text-teal-400" />
         </button>
-        <div className="w-14"></div> {/* Spacer for centering */}
+        <div className="w-14"></div>
       </div>
 
       {/* Main Content */}
@@ -223,146 +144,160 @@ const DepositPage = () => {
           Crypto Deposit
         </h1>
 
-        {/* Balance Card */}
-        <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 mb-6 text-center">
-          <div className="text-gray-400 mb-2">Current Balance</div>
-          <div className="text-teal-400 text-3xl font-bold">${userBalance}</div>
-          <div className="text-gray-400 mt-2 text-sm">Minimum deposit: ${minDeposit}</div>
-        </div>
-
         {/* Warning Box */}
         <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-3 mb-6 text-yellow-400 text-sm">
           ⚠️ Only send the selected cryptocurrency to the displayed address. Sending other tokens may result in permanent loss.
         </div>
 
-        {/* Deposit Form */}
-        <form onSubmit={handleSubmit} className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
-          {error && (
-            <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-3 mb-4 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Amount Input */}
-          <div className="mb-5">
-            <label className="block text-gray-400 text-sm mb-2" htmlFor="amount">
-              Deposit Amount (USD)
-            </label>
-            <input
-              type="number"
-              id="amount"
-              name="amount"
-              value={formData.amount}
-              onChange={handleInputChange}
-              className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none"
-              placeholder="Enter amount to deposit"
-              min={minDeposit}
-              step="0.01"
-              required
-            />
-          </div>
-
-          {/* Currency Select */}
-          <div className="mb-5">
-            <label className="block text-gray-400 text-sm mb-2" htmlFor="currency">
-              Select Cryptocurrency
-            </label>
-            <select
-              id="currency"
-              name="currency"
-              value={formData.currency}
-              onChange={handleCurrencyChange}
-              className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none appearance-none"
-              required
-            >
-              <option value="" disabled>Select cryptocurrency</option>
-              {Object.keys(availableWallets).map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency} - {availableWallets[currency].network}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Wallet Info (shown when currency selected) */}
-          {selectedCurrency && availableWallets[selectedCurrency] && (
-            <div className="bg-teal-400/10 border border-teal-400/30 rounded-xl p-4 mb-5">
-              <div className="mb-3">
-                <label className="block text-gray-400 text-sm mb-2">Deposit Address</label>
-                <div className="relative">
-                  <div className="bg-black/30 border border-teal-400/20 rounded-lg p-3 pr-16 break-all text-sm">
-                    {availableWallets[selectedCurrency].address}
+        {/* Currency Selection */}
+        <div className="space-y-4 mb-8">
+          {Object.keys(availableWallets).map((currency) => (
+            <div key={currency} className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl overflow-hidden">
+              {/* Currency Header */}
+              <button
+                onClick={() => toggleCurrency(currency)}
+                className="w-full flex justify-between items-center p-4 text-left"
+              >
+                <div className="flex items-center">
+                  <div className="bg-teal-400/10 rounded-lg p-2 mr-3">
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      {currency === 'bitcoin' && <span>₿</span>}
+                      {currency === 'ethereum' && <span>Ξ</span>}
+                      {currency === 'usdt' && <span>$</span>}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={copyAddressToClipboard}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-teal-400/20 border border-teal-400 rounded-lg px-3 py-1 text-teal-400 text-xs flex items-center"
-                  >
-                    {copySuccess ? (
-                      <>
-                        <FiCheck className="mr-1" /> Copied!
-                      </>
-                    ) : (
-                      <>
-                        <FiCopy className="mr-1" /> Copy
-                      </>
+                  <div>
+                    <div className="font-medium">{currency.toUpperCase()}</div>
+                    <div className="text-xs text-gray-400">
+                      {currency === 'bitcoin' && 'Bitcoin Network'}
+                      {currency === 'ethereum' && 'Ethereum Network'}
+                      {currency === 'usdt' && 'TRC20 Network'}
+                    </div>
+                  </div>
+                </div>
+                {expandedCurrency === currency ? (
+                  <FiChevronUp className="text-teal-400" />
+                ) : (
+                  <FiChevronDown className="text-gray-400" />
+                )}
+              </button>
+
+              {/* Expanded Content */}
+              {expandedCurrency === currency && availableWallets[currency] && (
+                <div className="p-4 border-t border-teal-400/20">
+                  {/* Address and QR Code */}
+                  <div className="bg-teal-400/10 border border-teal-400/30 rounded-xl p-4 mb-4">
+                    <div className="flex justify-center mb-4">
+                      <div className="bg-white p-2 rounded-lg">
+                        <QRCode 
+                          value={availableWallets[currency]} 
+                          size={128} 
+                          level="H"
+                          bgColor="#ffffff"
+                          fgColor="#000000"
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="block text-gray-400 text-sm mb-2">Deposit Address</label>
+                      <div className="relative">
+                        <div className="bg-black/30 border border-teal-400/20 rounded-lg p-3 pr-16 break-all text-sm">
+                          {availableWallets[currency]}
+                        </div>
+                        <button
+                          onClick={() => copyAddressToClipboard(currency)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-teal-400/20 border border-teal-400 rounded-lg px-3 py-1 text-teal-400 text-xs flex items-center"
+                        >
+                          {copySuccess === currency ? (
+                            <>
+                              <FiCheck className="mr-1" /> Copied!
+                            </>
+                          ) : (
+                            <>
+                              <FiCopy className="mr-1" /> Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deposit Form */}
+                  <form onSubmit={(e) => handleSubmit(currency, e)}>
+                    {error && (
+                      <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-3 mb-4 text-red-400 text-sm">
+                        {error}
+                      </div>
                     )}
-                  </button>
+
+                    {/* Amount Input */}
+                    <div className="mb-4">
+                      <label className="block text-gray-400 text-sm mb-2">Amount (USD)</label>
+                      <input
+                        type="number"
+                        name="amount"
+                        value={formData.amount}
+                        onChange={handleInputChange}
+                        className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-3 text-white focus:border-teal-400 focus:outline-none"
+                        placeholder="Enter amount"
+                        min="10"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+
+                    {/* Transaction Hash */}
+                    <div className="mb-4">
+                      <label className="block text-gray-400 text-sm mb-2">Transaction Hash</label>
+                      <input
+                        type="text"
+                        name="txHash"
+                        value={formData.txHash}
+                        onChange={handleInputChange}
+                        className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-3 text-white focus:border-teal-400 focus:outline-none"
+                        placeholder="Enter transaction hash"
+                        required
+                      />
+                    </div>
+
+                    {/* Proof Image */}
+                    <div className="mb-4">
+                      <label className="block text-gray-400 text-sm mb-2">Proof Image (Optional)</label>
+                      <input
+                        type="file"
+                        name="proofImage"
+                        onChange={handleFileChange}
+                        className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-3 text-white focus:border-teal-400 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-400/20 file:text-teal-400"
+                        accept="image/*"
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className={`w-full bg-gradient-to-r from-teal-400 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl mt-2 ${
+                        loading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-0.5'
+                      }`}
+                    >
+                      {loading ? 'Submitting...' : 'Submit Deposit'}
+                    </button>
+                  </form>
                 </div>
-                <div className="text-gray-400 text-xs mt-1">
-                  Network: {availableWallets[selectedCurrency].network}
-                </div>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Transaction Hash */}
-          <div className="mb-5">
-            <label className="block text-gray-400 text-sm mb-2" htmlFor="txHash">
-              Transaction Hash/ID
-            </label>
-            <input
-              type="text"
-              id="txHash"
-              name="txHash"
-              value={formData.txHash}
-              onChange={handleInputChange}
-              className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none"
-              placeholder="Enter transaction hash from your wallet"
-              required
-            />
-          </div>
-
-          {/* Proof Image */}
-          <div className="mb-6">
-            <label className="block text-gray-400 text-sm mb-2" htmlFor="proofImage">
-              Transaction Proof (Optional)
-            </label>
-            <input
-              type="file"
-              id="proofImage"
-              name="proofImage"
-              onChange={handleFileChange}
-              className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-400/20 file:text-teal-400"
-              accept="image/jpeg,image/png,.pdf"
-            />
-            <div className="text-gray-400 text-xs mt-1">
-              Upload screenshot or PDF of your transaction (max 5MB)
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full bg-gradient-to-r from-teal-400 to-teal-500 text-white font-semibold py-4 px-6 rounded-xl hover:shadow-lg transition-all ${
-              isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-0.5'
-            }`}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Deposit'}
-          </button>
-        </form>
+          ))}
+        </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast({...toast, show: false})} 
+        />
+      )}
     </div>
   );
 };

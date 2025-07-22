@@ -1,10 +1,30 @@
 import { useState } from 'react';
-import { FiShield, FiZap, FiGithub, FiCheckCircle, FiArrowRight } from 'react-icons/fi';
+import { FiShield, FiZap, FiGithub } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+
+// Toast Component
+const Toast = ({ message, type = 'info', onClose }) => {
+  const bgColor = {
+    success: 'bg-green-500',
+    error: 'bg-red-500',
+    info: 'bg-blue-500',
+    warning: 'bg-yellow-500'
+  }[type];
+
+  return (
+    <div className={`${bgColor} text-white px-4 py-3 rounded-md shadow-lg mb-2 flex justify-between items-center`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-4 text-white font-bold">
+        ×
+      </button>
+    </div>
+  );
+};
 
 const AuthPage = () => {
   const [currentTab, setCurrentTab] = useState('login');
   const [isLoading, setIsLoading] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
   // Form state
   const [loginForm, setLoginForm] = useState({
@@ -13,16 +33,35 @@ const AuthPage = () => {
   });
   
   const [signupForm, setSignupForm] = useState({
-    fullName: '',
     username: '',
     email: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
+    securityPin: '',
     referredBy: ''
   });
-  const navigate = useNavigate()
 
+  const navigate = useNavigate();
+
+  // Toast functions
+  const addToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    
+    // Auto remove toast after 5 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 5000);
+    
+    return id;
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  // Form handlers
   const handleLoginChange = (e) => {
     const { name, value } = e.target;
     setLoginForm(prev => ({ ...prev, [name]: value }));
@@ -38,12 +77,12 @@ const AuthPage = () => {
     setCurrentTab(tab);
   };
 
+  // Submit handlers
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      // Replace with your actual API call
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,17 +94,15 @@ const AuthPage = () => {
 
       const data = await response.json();
       if (response.ok) {
-        console.log('Login successful:', data);
-        alert('Login successful! Session token received.');
+        addToast('Login successful! Redirecting...', 'success');
         localStorage.setItem('token', data.token);
-        // Redirect to home page
-       navigate("/home")
+        navigate("/home");
       } else {
         throw new Error(data.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert(`Login failed: ${error.message}`);
+      addToast(error.message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -76,48 +113,64 @@ const AuthPage = () => {
     setIsLoading(true);
 
     if (signupForm.password !== signupForm.confirmPassword) {
-      alert('Passwords do not match!');
+      addToast('Passwords do not match!', 'error');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!/^\d{4,6}$/.test(signupForm.securityPin)) {
+      addToast('Security pin must be 4-6 digits', 'error');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Replace with your actual API call
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email: signupForm.email,
-          fullName: signupForm.fullName,
           username: signupForm.username,
           phoneNumber: signupForm.phoneNumber,
           password: signupForm.password,
+          withdrawalPassword: signupForm.securityPin,
           referredBy: signupForm.referredBy || undefined
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        console.log('Signup successful:', data);
-        alert('Registration successful! Please log in.');
+        addToast('Registration successful! Please log in.', 'success');
         setCurrentTab('login');
       } else {
         throw new Error(data.message || 'Registration failed');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      alert(`Registration failed: ${error.message}`);
+      addToast(error.message, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
   const showForgotPassword = () => {
-    alert('Forgot password functionality would be implemented here!');
+    addToast('Password reset functionality coming soon!', 'info');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f0f23] relative overflow-x-hidden">
+      {/* Toast Container */}
+      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </div>
+
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-60">
         <div className="absolute top-1/4 left-1/4 w-48 h-48 rounded-full bg-teal-300/10 blur-xl"></div>
@@ -246,18 +299,6 @@ const AuthPage = () => {
             <div className={`transition-opacity duration-300 ${currentTab !== 'signup' ? 'opacity-0 pointer-events-none absolute' : 'opacity-100'}`}>
               <form onSubmit={handleSignup}>
                 <div className="mb-3">
-                  <label className="block text-gray-300 text-xs font-normal mb-1.5">Full Name</label>
-                  <input
-                    type="text"
-                    name="fullName"
-                    value={signupForm.fullName}
-                    onChange={handleSignupChange}
-                    placeholder="Enter your full name"
-                    className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-gray-600 text-sm focus:border-teal-400 focus:bg-black/40 outline-none transition"
-                    required
-                  />
-                </div>
-                <div className="mb-3">
                   <label className="block text-gray-300 text-xs font-normal mb-1.5">Username</label>
                   <input
                     type="text"
@@ -317,6 +358,21 @@ const AuthPage = () => {
                     required
                   />
                 </div>
+                <div className="mb-3">
+                  <label className="block text-gray-300 text-xs font-normal mb-1.5">Security Pin (4-6 digits)</label>
+                  <input
+                    type="password"
+                    name="securityPin"
+                    value={signupForm.securityPin}
+                    onChange={handleSignupChange}
+                    placeholder="Enter your security pin"
+                    className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-gray-600 text-sm focus:border-teal-400 focus:bg-black/40 outline-none transition"
+                    inputMode="numeric"
+                    pattern="\d{4,6}"
+                    maxLength="6"
+                    required
+                  />
+                </div>
                 <div className="mb-4">
                   <label className="block text-gray-300 text-xs font-normal mb-1.5">Referral Code</label>
                   <input
@@ -324,7 +380,7 @@ const AuthPage = () => {
                     name="referredBy"
                     value={signupForm.referredBy}
                     onChange={handleSignupChange}
-                    placeholder="Enter referral code (optional)"
+                    placeholder="Enter referral code (Required)"
                     className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-gray-600 text-sm focus:border-teal-400 focus:bg-black/40 outline-none transition"
                   />
                 </div>

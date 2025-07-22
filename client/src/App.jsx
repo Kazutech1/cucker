@@ -24,6 +24,8 @@ import VipManagement from './admin/components/Vip';
 // import UserTasks from './admin/components/TasksManagement';
 import ATests from './admin/components/Test';
 import AUsers from './admin/components/TasksManagement';
+import AdminDashboard from './admin/components/AdminDashboard';
+import adminRoutes from './admin/components/adminRoutes';
 
 function App() {
   return (
@@ -42,8 +44,16 @@ function App() {
           <Route path="/about" element={<AboutUsPage />} />
            <Route path="/terms" element={<TermsAndConditions />} />
                       <Route path="/adlog" element={<AdminLogin />} />
-                         <Route path="/admin/dashboard" element={<ADashboard />} />
-                            <Route path="/admin/withdrawals" element={<AWithdrawals />} />
+ <Route path="/admin" element={<AdminDashboard />}>
+          {adminRoutes.map((route) => (
+            <Route 
+              key={route.path} 
+              path={route.path} 
+              element={route.element} 
+            />
+          ))}
+        </Route>  
+                        {/* <Route path="/admin/withdrawals" element={<AWithdrawals />} /> */}
                              <Route path="/admin/deposits" element={<ADeposits />} />
                                  <Route path="/admin/notifications" element={<ANotifications />} />
                                      <Route path="/admin/wallets" element={<AWallets />} />

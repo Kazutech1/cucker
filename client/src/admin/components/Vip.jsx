@@ -1,1024 +1,543 @@
-// import { useState, useEffect } from 'react';
-// import { FiFilter, FiUser, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
-// import Sidebar from './Sidebar';
-// import axios from 'axios';
-
-// const VipManagement = () => {
-//   const [users, setUsers] = useState([]);
-//   const [filteredUsers, setFilteredUsers] = useState([]);
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState('');
-//   const [success, setSuccess] = useState('');
-//   const [filters, setFilters] = useState({
-//     vipLevel: '',
-//     search: ''
-//   });
-//   const [modalOpen, setModalOpen] = useState(false);
-//   const [currentUser, setCurrentUser] = useState({
-//     id: '',
-//     username: '',
-//     currentLevel: 0,
-//     newLevel: 0
-//   });
-//    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
-   
-//   const api = axios.create({
-//     baseURL: import.meta.env.VITE_API_BASE_URL,
-//     headers: {
-//       'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-//       'Content-Type': 'application/json'
-//     }
-//   });
-
-//   useEffect(() => {
-//     fetchUsers();
-//   }, []);
-
-//   useEffect(() => {
-//     filterUsers();
-//   }, [filters, users]);
-
-//   const fetchUsers = async () => {
-//     try {
-//       setLoading(true);
-//       const response = await api.get('/api/admin/users');
-//       setUsers(response.data);
-//       setFilteredUsers(response.data);
-//     } catch (err) {
-//       setError('Failed to fetch users');
-//       console.error('API Error:', err.response?.data || err.message);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const filterUsers = () => {
-//     let filtered = users.filter(user => {
-//       const vipMatch = !filters.vipLevel || 
-//         (user.profile && user.profile.vipLevel.toString() === filters.vipLevel);
-//       const searchMatch = !filters.search || 
-//         user.username.toLowerCase().includes(filters.search.toLowerCase()) ||
-//         user.id.toLowerCase().includes(filters.search.toLowerCase());
-//       return vipMatch && searchMatch;
-//     });
-//     setFilteredUsers(filtered);
-//   };
-
-//   const handleFilterChange = (e) => {
-//     const { name, value } = e.target;
-//     setFilters(prev => ({ ...prev, [name]: value }));
-//   };
-
-//   const openUpdateModal = (user = null) => {
-//     if (user) {
-//       setCurrentUser({
-//         id: user.id,
-//         username: user.username,
-//         currentLevel: user.profile?.vipLevel || 0,
-//         newLevel: user.profile?.vipLevel || 0
-//       });
-//     } else {
-//       setCurrentUser({
-//         id: '',
-//         username: '',
-//         currentLevel: 0,
-//         newLevel: 0
-//       });
-//     }
-//     setModalOpen(true);
-//     setError('');
-//     setSuccess('');
-//   };
-
-//   const closeModal = () => {
-//     setModalOpen(false);
-//   };
-
-//   const updateVipLevel = async () => {
-//   try {
-//     setLoading(true);
-//     setError('');
-    
-//     // Convert to number and validate
-//     const vipLevel = parseInt(currentUser.newLevel);
-//     if (isNaN(vipLevel)) {
-//       throw new Error('Invalid VIP level');
-//     }
-
-//     const response = await api.put(`/api/admin/users/${currentUser.id}`, {
-//       vipLevel: vipLevel // Send only the VIP level
-//     });
-
-//     if (!response.data.success) {
-//       throw new Error(response.data.message || 'Update failed');
-//     }
-
-//     // Update state in multiple ways for reliability
-//     // 1. From API response
-//     if (response.data.user) {
-//       setUsers(prev => prev.map(u => 
-//         u.id === response.data.user.id ? response.data.user : u
-//       ));
-//     }
-    
-//     // 2. Optimistic update
-//     setUsers(prev => prev.map(user => 
-//       user.id === currentUser.id
-//         ? {
-//             ...user,
-//             profile: {
-//               ...user.profile,
-//               vipLevel: vipLevel
-//             }
-//           }
-//         : user
-//     ));
-
-//     setSuccess(`VIP level updated to ${vipLevel}`);
-//     setTimeout(() => setSuccess(''), 3000);
-//     closeModal();
-    
-//     // Optional: Force refresh from server
-//     await fetchUsers();
-//   } catch (err) {
-//     setError(err.message);
-//     console.error('VIP update error:', err.response?.data || err.message);
-//   } finally {
-//     setLoading(false);
-//   }
-// };
-
-
-//   const formatCurrency = (amount) => {
-//     return new Intl.NumberFormat('en-US', {
-//       style: 'currency',
-//       currency: 'USD',
-//     }).format(amount || 0);
-//   };
-
-  
-//    const toggleMobileSidebar = () => {
-//     setIsMobileSidebarOpen(!isMobileSidebarOpen);
-//   };
-
-
-//   return (
-//     <div className="flex min-h-screen bg-gray-100">
-//       <Sidebar active="vip"  isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar}  />
-      
-//       <main className="flex-1 p-4 md:p-6 md:ml-64">
-//         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">VIP Management</h1>
-        
-//         {error && (
-//           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-//             {error}
-//           </div>
-//         )}
-
-//         {success && (
-//           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-//             {success}
-//           </div>
-//         )}
-
-//         <div className="bg-white rounded-lg shadow overflow-hidden">
-//           <div className="p-4 md:p-6 border-b border-gray-200">
-//             <h2 className="text-lg md:text-xl font-semibold text-gray-800">User VIP Levels</h2>
-            
-//             <div className="flex flex-wrap gap-4 mt-4">
-//               <div className="relative">
-//                 <select
-//                   name="vipLevel"
-//                   value={filters.vipLevel}
-//                   onChange={handleFilterChange}
-//                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-//                 >
-//                   <option value="">All VIP Levels</option>
-//                   <option value="0">Level 0</option>
-//                   <option value="1">Level 1</option>
-//                   <option value="2">Level 2</option>
-//                   <option value="3">Level 3</option>
-//                   <option value="4">Level 4</option>
-//                   <option value="5">Level 5</option>
-//                 </select>
-//                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//                   <FiFilter className="text-gray-400" />
-//                 </div>
-//               </div>
-              
-//               <div className="relative flex-grow">
-//                 <input
-//                   type="text"
-//                   name="search"
-//                   value={filters.search}
-//                   onChange={handleFilterChange}
-//                   placeholder="Search by username or ID"
-//                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-//                 />
-//                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//                   <FiUser className="text-gray-400" />
-//                 </div>
-//               </div>
-
-//               <button
-//                 onClick={() => openUpdateModal()}
-//                 className="px-4 py-2 bg-teal-600 text-white rounded-md shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-//               >
-//                 Update User VIP
-//               </button>
-//             </div>
-//           </div>
-          
-//           <div className="overflow-x-auto">
-//             {loading ? (
-//               <div className="flex justify-center items-center p-5">
-//                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
-//               </div>
-//             ) : (
-//               <table className="min-w-full divide-y divide-gray-200">
-//                 <thead className="bg-gray-50">
-//                   <tr>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VIP Level</th>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invested</th>
-//                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-//                   </tr>
-//                 </thead>
-//                 <tbody className="bg-white divide-y divide-gray-200">
-//                   {filteredUsers.length === 0 ? (
-//                     <tr>
-//                       <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-//                         {users.length === 0 ? 'No users found' : 'No matching users found'}
-//                       </td>
-//                     </tr>
-//                   ) : (
-//                     filteredUsers.map((user) => (
-//                       <tr key={user.id} className="hover:bg-gray-50">
-//                         <td className="px-6 py-4 whitespace-nowrap">
-//                           <div className="text-sm font-medium text-gray-900">{user.username}</div>
-//                           <div className="text-sm text-gray-500">{user.id}</div>
-//                         </td>
-//                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-//                           {user.email}
-//                         </td>
-//                         <td className="px-6 py-4 whitespace-nowrap">
-//                           <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-//                             Level {user.profile?.vipLevel || 0}
-//                           </span>
-//                         </td>
-//                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-//                           {formatCurrency(user.balance)}
-//                         </td>
-//                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-//                           {formatCurrency(user.profile?.totalInvested || 0)}
-//                         </td>
-//                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-//                           <button
-//                             onClick={() => openUpdateModal(user)}
-//                             className="text-teal-600 hover:text-teal-900 mr-3"
-//                             title="Update VIP Level"
-//                           >
-//                             <FiEdit2 className="text-lg" />
-//                           </button>
-//                         </td>
-//                       </tr>
-//                     ))
-//                   )}
-//                 </tbody>
-//               </table>
-//             )}
-//           </div>
-//         </div>
-//       </main>
-
-//       {/* Update VIP Modal */}
-//       {modalOpen && (
-//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-//           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-//             <div className="p-6">
-//               <div className="flex justify-between items-start">
-//                 <h3 className="text-lg font-medium text-gray-900">
-//                   {currentUser.id ? `Update VIP for ${currentUser.username}` : 'Update User VIP Level'}
-//                 </h3>
-//                 <button
-//                   onClick={closeModal}
-//                   className="text-gray-400 hover:text-gray-500"
-//                 >
-//                   <FiX className="text-lg" />
-//                 </button>
-//               </div>
-              
-//               <div className="mt-4 space-y-4">
-//                 {!currentUser.id && (
-//                   <div>
-//                     <label htmlFor="userId" className="block text-sm font-medium text-gray-700">User ID</label>
-//                     <input
-//                       type="text"
-//                       id="userId"
-//                       name="id"
-//                       value={currentUser.id}
-//                       onChange={(e) => setCurrentUser(prev => ({ ...prev, id: e.target.value }))}
-//                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-//                     />
-//                   </div>
-//                 )}
-                
-//                 <div>
-//                   <label htmlFor="newLevel" className="block text-sm font-medium text-gray-700">New VIP Level</label>
-//                   <select
-//                     id="newLevel"
-//                     name="newLevel"
-//                     value={currentUser.newLevel}
-//                     onChange={(e) => setCurrentUser(prev => ({ ...prev, newLevel: parseInt(e.target.value) }))}
-//                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-//                   >
-//                     {[0, 1, 2, 3, 4, 5].map(level => (
-//                       <option key={level} value={level}>Level {level}</option>
-//                     ))}
-//                   </select>
-//                 </div>
-//               </div>
-              
-//               <div className="mt-6 flex justify-end space-x-3">
-//                 <button
-//                   onClick={closeModal}
-//                   className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-//                 >
-//                   Cancel
-//                 </button>
-//                 <button
-//                   onClick={updateVipLevel}
-//                   disabled={loading}
-//                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50"
-//                 >
-//                   {loading ? 'Updating...' : 'Update'}
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default VipManagement;
-
-
-
-
-import { useState, useEffect } from 'react';
-import { FiFilter, FiUser, FiEdit2, FiPlus, FiTrash2, FiX, FiCheck } from 'react-icons/fi';
-import Sidebar from './Sidebar';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import { 
+  Crown,
+  User,
+  Plus,
+  Edit,
+  Trash2,
+  Check,
+  X,
+  ArrowUp,
+  ArrowDown,
+  DollarSign,
+  Percent,
+  Layers,
+  Star
+} from 'lucide-react';
+import useVipAdmin from '../../../hooks/UseAdminVip';
+import Toast from '../../components/Toast';
 
 const VipManagement = () => {
-  const [users, setUsers] = useState([]);
+  const {
+    loading,
+    error,
+    getVipLevels,
+    updateUserVipLevel,
+    createVipLevel,
+    updateVipLevelDetails,
+    deleteVipLevel
+  } = useVipAdmin();
+
   const [vipLevels, setVipLevels] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [filters, setFilters] = useState({
-    vipLevel: '',
-    search: ''
-  });
-  const [userModalOpen, setUserModalOpen] = useState(false);
-  const [levelModalOpen, setLevelModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState({
-    id: '',
-    username: '',
-    currentLevel: 0,
-    newLevel: 0
-  });
-  const [currentLevel, setCurrentLevel] = useState({
-    id: null,
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [editingLevel, setEditingLevel] = useState(null);
+  const [newLevelForm, setNewLevelForm] = useState({
     level: '',
     name: '',
     profitPerOrder: '',
     appsPerSet: '',
     minBalance: ''
   });
-  const [levelToDelete, setLevelToDelete] = useState(null);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
-  const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-      'Content-Type': 'application/json'
-    }
+  const [userUpdateForm, setUserUpdateForm] = useState({
+    userId: '',
+    level: ''
   });
+  const [toast, setToast] = useState({
+    show: false,
+    message: '',
+    type: 'info'
+  });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showUserUpdateModal, setShowUserUpdateModal] = useState(false);
 
+  // Fetch all VIP levels on mount
   useEffect(() => {
-    fetchData();
+    fetchVipLevels();
   }, []);
 
-  useEffect(() => {
-    filterUsers();
-  }, [filters, users]);
-
-  const fetchData = async () => {
+  const fetchVipLevels = async () => {
     try {
-      setLoading(true);
-      const [usersRes, levelsRes] = await Promise.all([
-        api.get('/api/admin/users'),
-        api.get('/api/admin/vip-levels')
-      ]);
-      setUsers(usersRes.data);
-      setFilteredUsers(usersRes.data);
-      setVipLevels(levelsRes.data);
+      const data = await getVipLevels();
+      if (Array.isArray(data)) {
+        setVipLevels(data);
+      } else {
+        setToast({
+          show: true,
+          message: 'Invalid VIP levels data received',
+          type: 'error'
+        });
+      }
     } catch (err) {
-      setError('Failed to load data');
-      console.error('API Error:', err.response?.data || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterUsers = () => {
-    let filtered = users.filter(user => {
-      const vipMatch = !filters.vipLevel || 
-        (user.profile && user.profile.vipLevel.toString() === filters.vipLevel);
-      const searchMatch = !filters.search || 
-        user.username.toLowerCase().includes(filters.search.toLowerCase()) ||
-        user.id.toLowerCase().includes(filters.search.toLowerCase());
-      return vipMatch && searchMatch;
-    });
-    setFilteredUsers(filtered);
-  };
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  // User VIP Management Functions
-  const openUserModal = (user = null) => {
-    if (user) {
-      setCurrentUser({
-        id: user.id,
-        username: user.username,
-        currentLevel: user.profile?.vipLevel || 0,
-        newLevel: user.profile?.vipLevel || 0
-      });
-    } else {
-      setCurrentUser({
-        id: '',
-        username: '',
-        currentLevel: 0,
-        newLevel: 0
+      setToast({
+        show: true,
+        message: 'Failed to load VIP levels',
+        type: 'error'
       });
     }
-    setUserModalOpen(true);
-    setError('');
-    setSuccess('');
   };
 
-  const updateVipLevel = async () => {
+  const handleCreateLevel = async () => {
     try {
-      setLoading(true);
-      setError('');
-      
-      const vipLevel = parseInt(currentUser.newLevel);
-      if (isNaN(vipLevel)) {
-        throw new Error('Invalid VIP level');
-      }
-
-      const response = await api.put(`/api/admin/users/${currentUser.id}`, {
-        vipLevel: vipLevel
+      await createVipLevel(newLevelForm);
+      setToast({
+        show: true,
+        message: 'VIP level created successfully',
+        type: 'success'
       });
-
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Update failed');
-      }
-
-      setUsers(prev => prev.map(u => 
-        u.id === response.data.user.id ? response.data.user : u
-      ));
-      
-      setSuccess(`VIP level updated to ${vipLevel}`);
-      setTimeout(() => setSuccess(''), 3000);
-      setUserModalOpen(false);
-    } catch (err) {
-      setError(err.message);
-      console.error('VIP update error:', err.response?.data || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // VIP Level Management Functions
-  const openLevelModal = (level = null) => {
-    if (level) {
-      setCurrentLevel({
-        id: level.level,
-        level: level.level.toString(),
-        name: level.name || '',
-        profitPerOrder: level.profitPerOrder.toString(),
-        appsPerSet: level.appsPerSet.toString(),
-        minBalance: level.minBalance.toString()
-      });
-    } else {
-      setCurrentLevel({
-        id: null,
+      setShowCreateModal(false);
+      setNewLevelForm({
         level: '',
         name: '',
         profitPerOrder: '',
         appsPerSet: '',
         minBalance: ''
       });
-    }
-    setLevelModalOpen(true);
-    setError('');
-    setSuccess('');
-  };
-
-  const openDeleteModal = (level) => {
-    setLevelToDelete(level);
-    setDeleteModalOpen(true);
-  };
-
-  const handleLevelChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentLevel(prev => ({ ...prev, [name]: value }));
-  };
-
-  const saveVipLevel = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const levelData = {
-        level: parseInt(currentLevel.level),
-        name: currentLevel.name,
-        profitPerOrder: parseFloat(currentLevel.profitPerOrder),
-        appsPerSet: parseInt(currentLevel.appsPerSet),
-        minBalance: parseFloat(currentLevel.minBalance)
-      };
-
-      let response;
-      if (currentLevel.id) {
-        response = await api.put(`/api/admin/vip-levels/${currentLevel.id}`, levelData);
-      } else {
-        response = await api.post('/api/admin/vip-levels', levelData);
-      }
-
-      setSuccess(`VIP level ${currentLevel.id ? 'updated' : 'created'} successfully`);
-      setTimeout(() => setSuccess(''), 3000);
-      setLevelModalOpen(false);
-      fetchData();
+      fetchVipLevels();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save VIP level');
-      console.error('Save VIP level error:', err.response?.data || err.message);
-    } finally {
-      setLoading(false);
+      setToast({
+        show: true,
+        message: 'Failed to create VIP level',
+        type: 'error'
+      });
     }
   };
 
-  const deleteVipLevel = async () => {
+  const handleUpdateLevel = async () => {
+    if (!editingLevel) return;
+    
     try {
-      setLoading(true);
-      setError('');
-
-      await api.delete(`/api/admin/vip-levels/${levelToDelete.level}`);
-      
-      setSuccess(`VIP level ${levelToDelete.level} deleted successfully`);
-      setTimeout(() => setSuccess(''), 3000);
-      setDeleteModalOpen(false);
-      fetchData();
+      await updateVipLevelDetails(editingLevel.level, editingLevel);
+      setToast({
+        show: true,
+        message: 'VIP level updated successfully',
+        type: 'success'
+      });
+      setShowEditModal(false);
+      setEditingLevel(null);
+      fetchVipLevels();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete VIP level');
-      console.error('Delete VIP level error:', err.response?.data || err.message);
-    } finally {
-      setLoading(false);
+      setToast({
+        show: true,
+        message: 'Failed to update VIP level',
+        type: 'error'
+      });
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
+  const handleDeleteLevel = async (level) => {
+    try {
+      await deleteVipLevel(level);
+      setToast({
+        show: true,
+        message: `VIP level ${level} deleted successfully`,
+        type: 'success'
+      });
+      fetchVipLevels();
+    } catch (err) {
+      setToast({
+        show: true,
+        message: `Failed to delete VIP level ${level}`,
+        type: 'error'
+      });
+    }
   };
 
-  const toggleMobileSidebar = () => {
-    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  const handleUpdateUserVip = async () => {
+    try {
+      await updateUserVipLevel(userUpdateForm.userId, userUpdateForm.level);
+      setToast({
+        show: true,
+        message: 'User VIP level updated successfully',
+        type: 'success'
+      });
+      setShowUserUpdateModal(false);
+      setUserUpdateForm({
+        userId: '',
+        level: ''
+      });
+    } catch (err) {
+      setToast({
+        show: true,
+        message: 'Failed to update user VIP level',
+        type: 'error'
+      });
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <Sidebar active="vip" isMobileOpen={isMobileSidebarOpen} toggleMobileSidebar={toggleMobileSidebar} />
-      
-      <main className="flex-1 p-4 md:p-6 md:ml-64">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">VIP Management</h1>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+    <div className="flex-1 p-8 overflow-y-auto">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-2xl font-bold mb-8 flex items-center">
+          <Crown className="mr-2" size={24} />
+          VIP Management
+        </h2>
 
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {success}
-          </div>
-        )}
-
-        {/* VIP Levels Configuration Section */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800">VIP Levels Configuration</h2>
+        <div className="flex justify-between mb-6">
+          <div>
             <button
-              onClick={() => openLevelModal()}
-              className="px-4 py-2 bg-teal-600 text-white rounded-md shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 flex items-center"
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center px-4 py-2 bg-black text-white rounded-md hover:bg-back transition-colors"
             >
-              <FiPlus className="mr-2" /> Add VIP Level
+              <Plus className="mr-2" size={16} />
+              Create New Level
             </button>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit %</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Balance</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {vipLevels.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No VIP levels found</td>
-                  </tr>
-                ) : (
-                  vipLevels.map((level) => (
-                    <tr key={level.level} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {level.level}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {level.name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {(level.profitPerOrder * 100).toFixed(2)}%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(level.minBalance)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => openLevelModal(level)}
-                          className="text-teal-600 hover:text-teal-900 mr-3"
-                          title="Edit"
-                        >
-                          <FiEdit2 className="text-lg" />
-                        </button>
-                        {level.level > 0 && (
-                          <button
-                            onClick={() => openDeleteModal(level)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <FiTrash2 className="text-lg" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div>
+            {/* <button
+              onClick={() => setShowUserUpdateModal(true)}
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              <User className="mr-2" size={16} />
+              Update User VIP
+            </button> */}
           </div>
         </div>
 
-        {/* User VIP Management Section */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-200">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800">User VIP Management</h2>
-            
-            <div className="flex flex-wrap gap-4 mt-4">
-              <div className="relative">
-                <select
-                  name="vipLevel"
-                  value={filters.vipLevel}
-                  onChange={handleFilterChange}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                >
-                  <option value="">All VIP Levels</option>
-                  {vipLevels.map(level => (
-                    <option key={level.level} value={level.level}>Level {level.level}</option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiFilter className="text-gray-400" />
-                </div>
-              </div>
-              
-              <div className="relative flex-grow">
-                <input
-                  type="text"
-                  name="search"
-                  value={filters.search}
-                  onChange={handleFilterChange}
-                  placeholder="Search by username or ID"
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiUser className="text-gray-400" />
-                </div>
-              </div>
-
-              <button
-                onClick={() => openUserModal()}
-                className="px-4 py-2 bg-teal-600 text-white rounded-md shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-              >
-                Update User VIP
-              </button>
-            </div>
+        {/* VIP Levels Table */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-8">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <h3 className="font-bold text-gray-800">VIP Levels</h3>
           </div>
           
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="flex justify-center items-center p-5">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
-              </div>
-            ) : (
+          {loading && !vipLevels.length ? (
+            <div className="p-8 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-black"></div>
+            </div>
+          ) : vipLevels.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No VIP levels found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VIP Level</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invested</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit/Order</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apps/Set</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Balance</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                        {users.length === 0 ? 'No users found' : 'No matching users found'}
+                  {vipLevels.map((level) => (
+                    <tr key={level.level} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Star className="text-yellow-500 mr-2" size={16} />
+                          <span className="font-medium">{level.level}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {level.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <Percent className="mr-1" size={14} />
+                          {level.profitPerOrder}%
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <Layers className="mr-1" size={14} />
+                          {level.appsPerSet}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <DollarSign className="mr-1" size={14} />
+                          {level.minBalance.toFixed(2)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingLevel({...level});
+                            setShowEditModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                        >
+                          <Edit className="inline mr-1" size={16} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLevel(level.level)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                        >
+                          <Trash2 className="inline mr-1" size={16} />
+                          Delete
+                        </button>
                       </td>
                     </tr>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                          <div className="text-sm text-gray-500">{user.id}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {user.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                            Level {user.profile?.vipLevel || 0}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(user.balance)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(user.profile?.totalInvested || 0)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => openUserModal(user)}
-                            className="text-teal-600 hover:text-teal-900 mr-3"
-                            title="Update VIP Level"
-                          >
-                            <FiEdit2 className="text-lg" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </main>
 
-      {/* Update User VIP Modal */}
-      {userModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {currentUser.id ? `Update VIP for ${currentUser.username}` : 'Update User VIP Level'}
-                </h3>
-                <button
-                  onClick={() => setUserModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX className="text-lg" />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                {!currentUser.id && (
+        {/* Create VIP Level Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-slide-down">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <Plus className="mr-2" size={20} />
+                    Create VIP Level
+                  </h3>
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4">
                   <div>
-                    <label htmlFor="userId" className="block text-sm font-medium text-gray-700">User ID</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
                     <input
-                      type="text"
-                      id="userId"
-                      name="id"
-                      value={currentUser.id}
-                      onChange={(e) => setCurrentUser(prev => ({ ...prev, id: e.target.value }))}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                      type="number"
+                      value={newLevelForm.level}
+                      onChange={(e) => setNewLevelForm({...newLevelForm, level: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="VIP level number"
                     />
                   </div>
-                )}
-                
-                <div>
-                  <label htmlFor="newLevel" className="block text-sm font-medium text-gray-700">New VIP Level</label>
-                  <select
-                    id="newLevel"
-                    name="newLevel"
-                    value={currentUser.newLevel}
-                    onChange={(e) => setCurrentUser(prev => ({ ...prev, newLevel: parseInt(e.target.value) }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={newLevelForm.name}
+                      onChange={(e) => setNewLevelForm({...newLevelForm, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="VIP level name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Profit per Order (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newLevelForm.profitPerOrder}
+                      onChange={(e) => setNewLevelForm({...newLevelForm, profitPerOrder: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="Profit percentage"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Apps per Set</label>
+                    <input
+                      type="number"
+                      value={newLevelForm.appsPerSet}
+                      onChange={(e) => setNewLevelForm({...newLevelForm, appsPerSet: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="Number of apps per set"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Balance ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newLevelForm.minBalance}
+                      onChange={(e) => setNewLevelForm({...newLevelForm, minBalance: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="Minimum balance required"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    {vipLevels.map(level => (
-                      <option key={level.level} value={level.level}>Level {level.level} - {level.name || 'No name'}</option>
-                    ))}
-                  </select>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateLevel}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Create Level
+                  </button>
                 </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setUserModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={updateVipLevel}
-                  disabled={loading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50"
-                >
-                  {loading ? 'Updating...' : 'Update'}
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* VIP Level Create/Edit Modal */}
-      {levelModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {currentLevel.id ? 'Edit VIP Level' : 'Create New VIP Level'}
-                </h3>
-                <button
-                  onClick={() => setLevelModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX className="text-lg" />
-                </button>
-              </div>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="level" className="block text-sm font-medium text-gray-700">Level Number</label>
-                  <input
-                    type="number"
-                    id="level"
-                    name="level"
-                    value={currentLevel.level}
-                    onChange={handleLevelChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                    disabled={currentLevel.id !== null}
-                  />
+        {/* Edit VIP Level Modal */}
+        {showEditModal && editingLevel && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-slide-down">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <Edit className="mr-2" size={20} />
+                    Edit VIP Level {editingLevel.level}
+                  </h3>
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
                 </div>
-                
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={currentLevel.name}
-                    onChange={handleLevelChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="profitPerOrder" className="block text-sm font-medium text-gray-700">Profit Per Order (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    id="profitPerOrder"
-                    name="profitPerOrder"
-                    value={currentLevel.profitPerOrder}
-                    onChange={handleLevelChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="appsPerSet" className="block text-sm font-medium text-gray-700">Apps Per Set</label>
-                  <input
-                    type="number"
-                    id="appsPerSet"
-                    name="appsPerSet"
-                    value={currentLevel.appsPerSet}
-                    onChange={handleLevelChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="minBalance" className="block text-sm font-medium text-gray-700">Minimum Balance</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    id="minBalance"
-                    name="minBalance"
-                    value={currentLevel.minBalance}
-                    onChange={handleLevelChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setLevelModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveVipLevel}
-                  disabled={loading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Delete VIP Level Confirmation Modal */}
-      {deleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h3 className="text-lg font-medium text-gray-900">Confirm Deletion</h3>
-                <button
-                  onClick={() => setDeleteModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <FiX className="text-lg" />
-                </button>
-              </div>
-              
-              <div className="mt-4">
-                <p className="text-gray-700">
-                  Are you sure you want to delete VIP Level {levelToDelete?.level}?
-                  This action cannot be undone.
-                </p>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setDeleteModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={deleteVipLevel}
-                  disabled={loading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-                >
-                  {loading ? 'Deleting...' : 'Delete'}
-                </button>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={editingLevel.name}
+                      onChange={(e) => setEditingLevel({...editingLevel, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Profit per Order (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editingLevel.profitPerOrder}
+                      onChange={(e) => setEditingLevel({...editingLevel, profitPerOrder: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Apps per Set</label>
+                    <input
+                      type="number"
+                      value={editingLevel.appsPerSet}
+                      onChange={(e) => setEditingLevel({...editingLevel, appsPerSet: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Balance ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editingLevel.minBalance}
+                      onChange={(e) => setEditingLevel({...editingLevel, minBalance: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateLevel}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Save Changes
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Update User VIP Modal */}
+        {showUserUpdateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-slide-down">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <User className="mr-2" size={20} />
+                    Update User VIP Level
+                  </h3>
+                  <button
+                    onClick={() => setShowUserUpdateModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                    <input
+                      type="text"
+                      value={userUpdateForm.userId}
+                      onChange={(e) => setUserUpdateForm({...userUpdateForm, userId: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                      placeholder="Enter user ID"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">VIP Level</label>
+                    <select
+                      value={userUpdateForm.level}
+                      onChange={(e) => setUserUpdateForm({...userUpdateForm, level: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+                    >
+                      <option value="">Select VIP level</option>
+                      {vipLevels.map((level) => (
+                        <option key={level.level} value={level.level}>
+                          {level.level} - {level.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowUserUpdateModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateUserVip}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+                  >
+                    Update User
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast Notification */}
+        {toast.show && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast({...toast, show: false})} 
+          />
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes slide-down {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };
