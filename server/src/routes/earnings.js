@@ -2,7 +2,9 @@
 import express from 'express';
 // import { calculateDailyProfit, getDailyEarningsInfo } from '../controllers/earningsController.js'
 import { authenticateUser } from '../middlewares/auth.js';
-import { completeTask, getUserTaskHistory, getUserTasks, userRejectPendingTask } from '../admin/taskController.js';
+import { completeTask, declineTask, getCurrentTask, getUserTasks } from '../admin/adminController.js';
+// import { completeTask, declineTask, getUserTasks } from '../admin/adminController.js';
+// import { completeTask, getUserTaskHistory, getUserTasks, userRejectPendingTask } from '../admin/taskController.js';
 // import { completeTask, getUserTaskHistory, getUserTasks, getUserTaskStats } from '../controllers/earningsController.js';
 // import { completeComboTask, getComboTasks, getUserRegularTasks } from '../admin/userController.js';
 // import { completeTask, getUserTaskEarnings, getUserTaskHistory, getUserTasks } from '../admin/taskController.js';
@@ -49,16 +51,27 @@ router.use(authenticateUser);
 // router.get('/combo',  getComboTasks);
 
 
+// router.get('/',  getUserTasks);
+
+// // Submit task completion (normal or forced)
+// router.post('/:userTaskId/complete',  completeTask);
+
+// // User rejects a pending forced task
+// router.post('/:userTaskId/reject',  userRejectPendingTask);
+
+// // User task history
+// router.get('/history',  getUserTaskHistory);
+
+
+
+
+
+
+// User endpoints
 router.get('/',  getUserTasks);
-
-// Submit task completion (normal or forced)
-router.post('/:userTaskId/complete',  completeTask);
-
-// User rejects a pending forced task
-router.post('/:userTaskId/reject',  userRejectPendingTask);
-
-// User task history
-router.get('/history',  getUserTaskHistory);
+router.patch('/:taskId/complete',  completeTask);
+router.patch('/:taskId/decline', declineTask);
+router.get('/current-task', getCurrentTask) 
 
 
 

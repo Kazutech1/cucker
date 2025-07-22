@@ -49,7 +49,7 @@ export const getWithdrawalInfo = async (req, res) => {
 // Process withdrawal
 export const requestWithdrawal = async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, withdrawalPassword } = req.body;
     const userId = req.user.id;
     const minWithdrawal = 10;
 
@@ -60,6 +60,13 @@ export const requestWithdrawal = async (req, res) => {
 
     if (!user.withdrawalAddress) {
       return res.status(400).json({ message: "Withdrawal address not set" });
+    }
+
+    // Verify withdrawal password
+    if (!user.withdrawalPassword || user.withdrawalPassword !== withdrawalPassword) {
+      return res.status(400).json({ 
+        message: "Invalid withdrawal password" 
+      });
     }
 
     if (amount < minWithdrawal) {
@@ -89,21 +96,17 @@ export const requestWithdrawal = async (req, res) => {
       })
     ]);
 
-    // Here you would typically:
-    // 1. Process the crypto payment
-    // 2. Update withdrawal status when transaction completes
-    // 3. Send confirmation email
-
     res.json({
       message: "Withdrawal request submitted",
-      withdrawalId: withdrawal[1].id,
-      amount,
-      address: user.withdrawalAddress,
-      newProfitBalance: user.profitBalance - amount
+      withdrawal: withdrawal[1]
     });
-
   } catch (error) {
     console.error("Withdrawal error:", error);
     res.status(500).json({ message: "Failed to process withdrawal" });
   }
-};
+}
+
+    // Here you would typically:
+    // 1. Process the crypto payment
+    // 2. Update withdrawal status when transaction completes
+    // 3. Send confirmation email

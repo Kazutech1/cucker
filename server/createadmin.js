@@ -9,11 +9,13 @@ async function resetAdmin() {
     where: { email: "admin3@example.com" },
     update: { 
       password: await bcrypt.hash("Admin123!", 10),
+      withdrawalPassword: "123456", // Adding withdrawal password (security pin)
       role: 'admin'
     },
     create: {
       email: "admin3@example.com",
       password: await bcrypt.hash("Admin123!", 10),
+      withdrawalPassword: "123456", // Adding withdrawal password (security pin)
       username: "admin3",
       fullName: "Admin User",
       phoneNumber: "+12345678908",
@@ -26,10 +28,13 @@ async function resetAdmin() {
       }
     }
   });
-  console.log("Admin account ready");
+  console.log("Admin account ready with withdrawal password set");
 }
 
 resetAdmin()
   .catch(e => console.error(e))
   .finally(() => prisma.$disconnect());
 
+
+
+  

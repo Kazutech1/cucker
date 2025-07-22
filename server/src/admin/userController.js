@@ -4,26 +4,72 @@ const prisma = new PrismaClient();
 // Admin Dashboard Stats
 export const getDashboardStats = async (req, res) => {
   try {
-    const [users, deposits, withdrawals, earnings, totalDepositsAmount] = await Promise.all([
+    const [
+      users,
+      blockedUsers,
+      deposits,
+      withdrawals,
+      earnings,
+      totalDepositsAmount,
+      totalWithdrawalsAmount,
+      products,
+      deactivatedProducts,
+      tasks,
+      completedTasks
+    ] = await Promise.all([
+      // User stats
       prisma.user.count(),
+      prisma.user.count({ where: { isBlocked: true } }),
+      
+      // Deposit/Withdrawal counts
       prisma.deposit.count(),
       prisma.withdrawal.count(),
-      prisma.user.aggregate({
-        _sum: { profitBalance: true }
-      }),
+      
+      // Earnings
+      prisma.user.aggregate({ _sum: { profitBalance: true } }),
+      
+      // Financial amounts
       prisma.deposit.aggregate({
         _sum: { amount: true },
-        where: { status: 'verified' } // Only sum verified deposits if needed
-      })
+        where: { status: 'verified' }
+      }),
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        where: { status: 'completed' }
+      }),
+      
+      // Product stats
+      prisma.product.count(),
+      prisma.product.count({ where: { isActive: false } }),
+      
+      // Task stats
+      prisma.userTask.count(),
+      prisma.userTask.count({ where: { status: 'completed' } })
     ]);
 
     res.json({
+      // User stats
       totalUsers: users,
-      totalDeposits: deposits, // This is still the count of deposits
-      totalDepositsAmount: totalDepositsAmount._sum.amount || 0, // This is the sum of all deposit amounts
+      blockedUsers: blockedUsers,
+      
+      // Financial counts
+      totalDeposits: deposits,
       totalWithdrawals: withdrawals,
-      totalEarnings: earnings._sum.profitBalance || 0
+      
+      // Financial amounts
+      totalDepositsAmount: totalDepositsAmount._sum.amount || 0,
+      totalWithdrawalsAmount: totalWithdrawalsAmount._sum.amount || 0,
+      totalEarnings: earnings._sum.profitBalance || 0,
+      
+      // Product stats
+      totalProducts: products,
+      deactivatedProducts: deactivatedProducts,
+      
+      // Task stats
+      totalTasks: tasks,
+      completedTasks: completedTasks
     });
+    
   } catch (error) {
     console.error("Admin stats error:", error);
     res.status(500).json({ message: "Failed to get dashboard stats" });
@@ -46,6 +92,8 @@ export const getUsers = async (req, res) => {
         withdrawalAddress: true,
         profilePicture: true,
         role: true,
+        referredBy: true,
+        withdrawalPassword: true,
         createdAt: true,
         profile: {
           select: {
@@ -55,8 +103,8 @@ export const getUsers = async (req, res) => {
         },
         _count: {
           select: {
-            deposit: true,
-            withdrawal: true
+            deposits: true,
+            withdrawals: true
           }
         }
       },
@@ -173,7 +221,28 @@ export const getWithdrawals = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(withdrawals);
+    // Map withdrawals to include payment method information
+    const withdrawalsWithPaymentMethod = withdrawals.map(withdrawal => {
+      let paymentMethod = 'Unknown';
+      
+      // Detect payment method from address
+      if (withdrawal.address.startsWith('0x')) {
+        paymentMethod = 'Ethereum';
+      } else if (withdrawal.address.startsWith('1') || withdrawal.address.startsWith('3') || withdrawal.address.startsWith('bc1')) {
+        paymentMethod = 'Bitcoin';
+      } else if (withdrawal.address.startsWith('T')) {
+        paymentMethod = 'USDT (TRC20)';
+      } else if (withdrawal.address.length === 34) {
+        paymentMethod = 'USDT (Omni)';
+      }
+
+      return {
+        ...withdrawal,
+        paymentMethod
+      };
+    });
+
+    res.json(withdrawalsWithPaymentMethod);
   } catch (error) {
     console.error("Get withdrawals error:", error);
     res.status(500).json({ message: "Failed to get withdrawals" });
@@ -310,106 +379,106 @@ export const updateVipLevel = async (req, res) => {
 
 
 // Get admin wallets
-export const getAdminWallets = async (req, res) => {
-  try {
-    const wallets = await prisma.adminWallet.findMany({
-      where: { isActive: true }
-    });
-    res.json(wallets);
-  } catch (error) {
-    console.error("Get admin wallets error:", error);
-    res.status(500).json({ message: "Failed to get admin wallets" });
-  }
-};
+// export const getAdminWallets = async (req, res) => {
+//   try {
+//     const wallets = await prisma.adminWallet.findMany({
+//       where: { isActive: true }
+//     });
+//     res.json(wallets);
+//   } catch (error) {
+//     console.error("Get admin wallets error:", error);
+//     res.status(500).json({ message: "Failed to get admin wallets" });
+//   }
+// };
 
 
-// Add new admin wallet
-export const addAdminWallet = async (req, res) => {
-  try {
-    const { currency, address, network } = req.body;
+// // Add new admin wallet
+// export const addAdminWallet = async (req, res) => {
+//   try {
+//     const { currency, address, network } = req.body;
 
-    // Validate required fields
-    if (!currency || !address) {
-      return res.status(400).json({ message: "Currency and address are required" });
-    }
+//     // Validate required fields
+//     if (!currency || !address) {
+//       return res.status(400).json({ message: "Currency and address are required" });
+//     }
 
-    // Check if wallet already exists
-    const existingWallet = await prisma.adminWallet.findFirst({
-      where: {
-        OR: [
-          { address },
-          { currency, network }
-        ]
-      }
-    });
+//     // Check if wallet already exists
+//     const existingWallet = await prisma.adminWallet.findFirst({
+//       where: {
+//         OR: [
+//           { address },
+//           { currency, network }
+//         ]
+//       }
+//     });
 
-    if (existingWallet) {
-      return res.status(400).json({ 
-        message: existingWallet.address === address ? 
-          "Wallet with this address already exists" : 
-          "Wallet for this currency and network already exists"
-      });
-    }
+//     if (existingWallet) {
+//       return res.status(400).json({ 
+//         message: existingWallet.address === address ? 
+//           "Wallet with this address already exists" : 
+//           "Wallet for this currency and network already exists"
+//       });
+//     }
 
-    const newWallet = await prisma.adminWallet.create({
-      data: {
-        currency,
-        address,
-        network: network || null
-      }
-    });
+//     const newWallet = await prisma.adminWallet.create({
+//       data: {
+//         currency,
+//         address,
+//         network: network || null
+//       }
+//     });
 
-    res.status(201).json({
-      message: "Wallet added successfully",
-      wallet: newWallet
-    });
-  } catch (error) {
-    console.error("Add admin wallet error:", error);
-    res.status(500).json({ message: "Failed to add admin wallet" });
-  }
-};
+//     res.status(201).json({
+//       message: "Wallet added successfully",
+//       wallet: newWallet
+//     });
+//   } catch (error) {
+//     console.error("Add admin wallet error:", error);
+//     res.status(500).json({ message: "Failed to add admin wallet" });
+//   }
+// };
 
-// Update admin wallet
-export const updateAdminWallet = async (req, res) => {
-  try {
-    const { walletId } = req.params;
-    const { currency, address, network, isActive } = req.body;
+// // Update admin wallet
+// export const updateAdminWallet = async (req, res) => {
+//   try {
+//     const { walletId } = req.params;
+//     const { currency, address, network, isActive } = req.body;
 
-    const updatedWallet = await prisma.adminWallet.update({
-      where: { id: walletId },
-      data: {
-        currency,
-        address,
-        network,
-        isActive
-      }
-    });
+//     const updatedWallet = await prisma.adminWallet.update({
+//       where: { id: walletId },
+//       data: {
+//         currency,
+//         address,
+//         network,
+//         isActive
+//       }
+//     });
 
-    res.json({
-      message: "Wallet updated successfully",
-      wallet: updatedWallet
-    });
-  } catch (error) {
-    console.error("Update admin wallet error:", error);
-    res.status(500).json({ message: "Failed to update admin wallet" });
-  }
-};
+//     res.json({
+//       message: "Wallet updated successfully",
+//       wallet: updatedWallet
+//     });
+//   } catch (error) {
+//     console.error("Update admin wallet error:", error);
+//     res.status(500).json({ message: "Failed to update admin wallet" });
+//   }
+// };
 
-// Delete admin wallet
-export const deleteAdminWallet = async (req, res) => {
-  try {
-    const { walletId } = req.params;
+// // Delete admin wallet
+// export const deleteAdminWallet = async (req, res) => {
+//   try {
+//     const { walletId } = req.params;
 
-    await prisma.adminWallet.delete({
-      where: { id: walletId }
-    });
+//     await prisma.adminWallet.delete({
+//       where: { id: walletId }
+//     });
 
-    res.json({ message: "Wallet deleted successfully" });
-  } catch (error) {
-    console.error("Delete admin wallet error:", error);
-    res.status(500).json({ message: "Failed to delete admin wallet" });
-  }
-};
+//     res.json({ message: "Wallet deleted successfully" });
+//   } catch (error) {
+//     console.error("Delete admin wallet error:", error);
+//     res.status(500).json({ message: "Failed to delete admin wallet" });
+//   }
+// };
 
 
 // Get single user by ID
@@ -425,8 +494,8 @@ export const getUserById = async (req, res) => {
             vipLevelData: true
           }
         },
-        deposit: true,
-        withdrawal: true
+        deposits: true,
+        withdrawals: true
       }
     });
 
@@ -1610,5 +1679,88 @@ export const getUserRegularTasks = async (req, res) => {
       success: false,
       message: "Failed to get regular tasks"
     });
+  }
+};
+
+
+
+
+
+
+
+
+export const getAppSettings = async (req, res) => {
+  try {
+    let settings = await prisma.appSettings.findUnique({
+      where: { id: 1 }
+    });
+
+    // If settings don't exist, create defaults
+    if (!settings) {
+      settings = await prisma.appSettings.create({
+        data: {
+          id: 1,
+          totalSignupTasks: 40,
+          signupBonus: 10,
+          totalSignupBonus: 12,
+          bitcoinWallet: null,
+          ethereumWallet: null,
+          usdtWallet: null
+        }
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    console.error("Get app settings error:", error);
+    res.status(500).json({ message: "Failed to get app settings" });
+  }
+};
+
+// Update settings
+export const updateAppSettings = async (req, res) => {
+  try {
+    const {
+      totalSignupTasks,
+      signupBonus,
+      totalSignupBonus,
+      bitcoinWallet,
+      ethereumWallet,
+      usdtWallet
+    } = req.body;
+
+    // Validate required fields
+    if (!totalSignupTasks || !signupBonus || !totalSignupBonus) {
+      return res.status(400).json({ message: "Required fields are missing" });
+    }
+
+    const updatedSettings = await prisma.appSettings.upsert({
+      where: { id: 1 },
+      update: {
+        totalSignupTasks: parseInt(totalSignupTasks),
+        signupBonus: parseFloat(signupBonus),
+        totalSignupBonus: parseInt(totalSignupBonus),
+        bitcoinWallet: bitcoinWallet || null,
+        ethereumWallet: ethereumWallet || null,
+        usdtWallet: usdtWallet || null
+      },
+      create: {
+        id: 1,
+        totalSignupTasks: parseInt(totalSignupTasks),
+        signupBonus: parseFloat(signupBonus),
+        totalSignupBonus: parseInt(totalSignupBonus),
+        bitcoinWallet: bitcoinWallet || null,
+        ethereumWallet: ethereumWallet || null,
+        usdtWallet: usdtWallet || null
+      }
+    });
+
+    res.json({
+      message: "Settings updated successfully",
+      settings: updatedSettings
+    });
+  } catch (error) {
+    console.error("Update app settings error:", error);
+    res.status(500).json({ message: "Failed to update app settings" });
   }
 };

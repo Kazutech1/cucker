@@ -8,36 +8,49 @@ datasource db {
   // directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id           String   @id @default(uuid()) @map("userid")
-  email        String   @unique
-  fullName     String
-  username     String   @unique
-  phoneNumber  String?   @unique
-  password     String
-  referralCode String   @unique
-  referredBy   String?
-  role         String   @default("user") // 'user' or 'admin'
-  balance      Float    @default(0)
-  profitBalance Float   @default(0)
-  taskLimit       Int        @default(5)
 
-  taskWindowStart DateTime?
+
+model User {
+  id               String     @id @default(uuid()) @map("userid")
+  email            String     @unique
+  fullName         String?    // Made optional
+  username         String     @unique
+  phoneNumber      String?    @unique
+  password         String
+  withdrawalPassword String   // Added (plain text)
+  referralCode     String     @unique
+  referredBy       String?
+  role             String     @default("user") // 'user' or 'admin'
+  balance          Float      @default(0)
+  profitBalance    Float      @default(0)
+  taskLimit        Int        @default(5)
+  isBlocked        Boolean    @default(false)
+  nextTaskNumber   Int        @default(1)
+  
+  // Timestamps
+  taskWindowStart  DateTime?
+  lastProfitCalc   DateTime?
+  lastTaskRefresh  DateTime?
+  lastLogin        DateTime?
+  createdAt        DateTime   @default(now())
+
+  // Profile fields
   withdrawalAddress String?
-  profilePicture String?
-  lastProfitCalc DateTime?
-  lastTaskRefresh DateTime?
-  lastLogin    DateTime?  // Add this new field
-  createdAt    DateTime @default(now())
+  profilePicture    String?
+  canReceiveTasks Boolean  @default(true)
+  deactivatedAt  DateTime?
 
   // Relations
-  profile     Profile?
-  withdrawal Withdrawal[]
-  deposit    Deposit[]
-  userTasks       UserTask[]
-  // taskHistory  TaskHistory[]
-  // // userTasks   UserTask[]
-  // taskAssignments TaskAssignment[]
+  profile          Profile?
+  withdrawals      Withdrawal[]
+  deposits         Deposit[]
+  userTasks        UserTask[]
+
+  // Add index for better query performance
+  @@index([email])
+  @@index([username])
+  @@index([phoneNumber])
+  @@index([referralCode])
 }
 
 model VipLevel {
@@ -100,6 +113,7 @@ model Deposit {
   userId      String
   amount      Float
   txHash      String?
+  currency    String?
   proofImage   String?
   status      String   @default("pending") // pending/verified/rejected
   createdAt   DateTime @default(now())
@@ -126,117 +140,19 @@ model Notification {
   createdAt   DateTime @default(now())
 }
 
-// NEW TASK SYSTEM MODELS
-
-// model Task {
-//   id          String   @id @default(uuid())
-//   appName     String
-//   appImage    String   // URL to app image
-//   appReview   String
-//   appProfit   Float
-//   isActive    Boolean  @default(true)
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-
-//   // Relations
-//   taskAssignments TaskAssignment[]
-//   userTasks       UserTask[]
-// }
-
-// model TaskAssignment {
-//   id          String   @id @default(uuid())
-//   userId      String
-//   taskId      String
-//   assignedAt  DateTime @default(now())
-//   expiresAt   DateTime
-//   isCompleted Boolean  @default(false)
-//   completedAt DateTime?
-
-//   // Relations
-//   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-//   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-//   @@unique([userId, taskId])
-// }
-
-// model UserTask {
-//   id          String   @id @default(uuid())
-//   userId      String
-//   taskId      String
-//   status      String   @default("pending") // pending, completed
-//   completedAt DateTime?
-//   profit      Float
-//   createdAt   DateTime @default(now())
-
-//   // Relations
-//   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-//   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-// }
-
-// model TaskSettings {
-//   id              String   @id @default(uuid())
-//   dailyTaskLimit  Int      @default(5)
-//   resetHours      Int      @default(24)
-//   createdAt       DateTime @default(now())
-//   updatedAt       DateTime @updatedAt
-// }
-
-// model Task {
-//   id          String    @id @default(uuid())
-//   appName     String
-//   appImage    String
-//   appReview   String
-//   appProfit   Float
-//   isActive    Boolean   @default(true)
-//   isComboTask Boolean   @default(false)
-//   comboAmount Float?
-//   createdAt   DateTime  @default(now())
-//   updatedAt   DateTime  @updatedAt
-//   assignments TaskAssignment[]
-//   taskHistory TaskHistory[]
-// }
-
-// model TaskAssignment {
-//   id            String   @id @default(uuid())
-//   taskId        String
-//   userId        String
-//   isCompleted   Boolean  @default(false)
-//   isComboTask   Boolean  @default(false)
-//   comboAmount   Float?
-//   depositVerified Boolean @default(false)
-//   completedAt   DateTime?
-//   createdAt     DateTime @default(now())
-  
-//   task          Task     @relation(fields: [taskId], references: [id])
-//   user          User     @relation(fields: [userId], references: [id])
-// }
-
-// model TaskHistory {
-//   id          String   @id @default(uuid())
-//   userId      String
-//   taskId      String
-//   taskName    String
-//   profitEarned Float
-//   isComboTask Boolean  @default(false)
-//   comboAmount Float?
-//   completedAt DateTime @default(now())
-  
-//   user        User     @relation(fields: [userId], references: [id])
-//   task        Task?    @relation(fields: [taskId], references: [id])
-// }
 
 
-
-model Task {
-  id            String     @id @default(uuid())
-  appName       String
-  appImage      String
-  appReview     String
-  profit        Float
-  depositAmount Float?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  assignedUsers UserTask[]
+model Product {
+  id               String     @id @default(uuid())
+  name             String
+  image            String
+  reviewText       String
+  defaultProfit    Float
+  defaultDeposit   Float?     // If set, creates forced task
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  userTasks        UserTask[]
 }
 
 
@@ -251,16 +167,33 @@ enum UserTaskStatus {
 
 
 model UserTask {
-  id         String           @id @default(uuid())
-  user       User             @relation(fields: [userId], references: [id])
-  userId     String
-  task       Task             @relation(fields: [taskId], references: [id])
-  taskId     String
-  status     UserTaskStatus   @default(assigned)
-  customProfit       Float?   // Overrides task.profit
-  customDepositAmount Float?  // Overrides task.depositAmount
-  createdAt  DateTime         @default(now())
+  id               String         @id @default(uuid())
+  user             User           @relation(fields: [userId], references: [id])
+  userId           String
+  product          Product        @relation(fields: [productId], references: [id])
+  productId        String
+  status           UserTaskStatus @default(assigned)
+  taskNumber       Int            // Per-user ordering
+  profitAmount     Float          // Final profit to award user (can be default or custom)
+  depositAmount    Float?         // Final deposit required for forced task (can be default or custom)
+  isForced         Boolean        @default(false)
+  depositStatus    String?        // 'pending', 'approved', 'rejected' – for forced tasks
+  isActive         Boolean        @default(true) // Soft delete
+  createdAt        DateTime       @default(now())
 }
 
 
+
+
+
+model AppSettings {
+  id                Int       @id @default(1)
+  totalSignupTasks  Int       @default(40)
+  signupBonus       Float     @default(10)
+  totalSignupBonus  Int       @default(12)
+  bitcoinWallet     String?
+  ethereumWallet    String?
+  usdtWallet       String?
+  updatedAt        DateTime  @updatedAt
+}
 

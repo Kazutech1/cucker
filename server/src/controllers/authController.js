@@ -74,12 +74,12 @@ const validatePhoneNumber = (phoneNumber) => {
 
 // Register Controller
 export const register = async (req, res) => {
-  const { email, fullName, username, phoneNumber, password, referredBy } = req.body;
+  const { email, fullName, username, phoneNumber, password, withdrawalPassword, referredBy } = req.body;
 
   try {
-    // Validate required fields
-    if (!email || !fullName || !username || !phoneNumber || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    // Validate required fields (fullName is now optional)
+    if (!email || !username || !phoneNumber || !password || !withdrawalPassword) {
+      return res.status(400).json({ message: "Email, username, phone number, password, and withdrawal password are required" });
     }
 
     // Validate phone number format
@@ -107,7 +107,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: `${conflictField} already exists` });
     }
 
-    // Hash password
+    // Hash main password (but not withdrawal password)
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = generateReferralCode();
 
@@ -129,10 +129,11 @@ export const register = async (req, res) => {
       const newUser = await tx.user.create({
         data: {
           email,
-          fullName,
+          fullName: fullName || null, // Make fullName optional
           username,
           phoneNumber,
           password: hashedPassword,
+          withdrawalPassword, // Stored as plain text (not hashed)
           referralCode,
           referredBy: referredBy || null
         }
@@ -166,6 +167,8 @@ export const register = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 // Login Controller (can login with email, username, or phone number)
 export const login = async (req, res) => {

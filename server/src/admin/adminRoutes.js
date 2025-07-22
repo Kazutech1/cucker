@@ -10,10 +10,10 @@ import {
   processWithdrawal,
   getVipLevels,
   updateVipLevel,
-  getAdminWallets,
-  addAdminWallet,
-  updateAdminWallet,
-  deleteAdminWallet,
+  // getAdminWallets,
+  // addAdminWallet,
+  // updateAdminWallet,
+  // deleteAdminWallet,
   getUserById,
   getDepositById,
   getWithdrawalById,
@@ -23,6 +23,8 @@ import {
   createVipLevel,
   updateVipLevelDetails,
   deleteVipLevel,
+  getAppSettings,
+  updateAppSettings,
   // createTask,
   // getAllTasks,
   // updateTask,
@@ -41,7 +43,8 @@ import {
 } from './userController.js';
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
-import { assignTask, assignTasksToUser, assignTaskToUser, createCustomUserTask, createTask,  deactivateUserTasks, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, updateUsersTask, updateUserTask, verifyForcedTask } from './taskController.js';
+// import { assignTask, assignTasksToUser, assignTaskToUser, createCustomUserTask, createTask,  deactivateUserTasks, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, updateUsersTask, updateUserTask, verifyForcedTask } from './taskController.js';
+import { assignTasksToUser, createProduct, deactivateUserTasks, deleteProduct, deleteTask, editTask, getAllProducts, getAllUsersTasks, getProduct, toggleProductStatus, updateProduct, updateTaskDetails } from './adminController.js';
 // import { createTask, deleteTask, getAllTasks, getAllUsersTaskStats, getUserTaskHistorys, resetAllUserTasks, resetUserTasks, setUserTaskAmount, updateTask } from './taskController.js';
 // import { createAppReview, createTask, deleteAppReview, deleteTask, getAllTasks, getAppReviews, getTaskAnalytics, getTaskSettings, getUsersWithPendingTasks, getUserTaskStats, resetAllUserTasks, resetUserTasks, setUserTaskLimit, updateAppReview, updateTask, updateTaskSettings, updateUserTaskLimit } from './taskController.js';
 
@@ -78,15 +81,38 @@ router.delete('/vip-levels/:level', deleteVipLevel);
 
 
 // Wallet Management
-router.get('/wallets', getAdminWallets);
-router.post('/wallets', addAdminWallet);
-router.put('/wallets/:walletId', updateAdminWallet);
-router.delete('/wallets/:walletId', deleteAdminWallet);
+// router.get('/wallets', getAdminWallets);
+// router.post('/wallets', addAdminWallet);
+// router.put('/wallets/:walletId', updateAdminWallet);
+// router.delete('/wallets/:walletId', deleteAdminWallet);
 
 // Notification Management
 router.post('/notifications', sendNotification);
 router.get('/notifications', getNotifications);
 router.delete('/notifications/:notificationId', deleteNotification);
+
+
+router.get('/settings', getAppSettings);
+router.put('/settings', updateAppSettings);
+
+
+
+router.post('/products', createProduct);
+
+// Get all products
+router.get('/products', getAllProducts);
+
+// Get a single product
+router.get('/products/:productId', getProduct);
+
+// Update a product
+router.put('/products/:productId', updateProduct);
+
+// Toggle product status (active/inactive)
+router.patch('/products/:productId/toggle-status', toggleProductStatus);
+
+// Delete a product
+router.delete('/products/:productId', deleteProduct);
 
 
 // router.post('/reviews',  createAppReview);
@@ -141,39 +167,47 @@ router.delete('/notifications/:notificationId', deleteNotification);
 
 
 
-router.post('/tasks',   createTask);
-router.get('/tasks',  getAllTasks);
-router.get('/tasks/:id',  getTaskById);
-router.put('/tasks/:id',   updateTask);
-router.delete('/tasks/:id',  deleteTask);
+// router.post('/tasks',   createTask);
+// router.get('/tasks',  getAllTasks);
+// router.get('/tasks/:id',  getTaskById);
+// router.put('/tasks/:id',   updateTask);
+// router.delete('/tasks/:id',  deleteTask);
 
-/** --- ADMIN ASSIGN TASKS --- **/
-router.post('/tasks/assign',  assignTask);
-router.post('/task/:userId/assign-tasks', assignTasksToUser);
+// /** --- ADMIN ASSIGN TASKS --- **/
+// router.post('/tasks/assign',  assignTask);
+// router.post('/task/:userId/assign-tasks', assignTasksToUser);
 
-router.post('/admin/user-tasks/assign', assignTaskToUser);
-router.put('/admin/user-tasks/:id', updateUsersTask);
-router.post('/user-tasks/custom', createCustomUserTask);
-// Add to your admin task routes
-router.delete('/users/:userId/deactivate-tasks', deactivateUserTasks);
-
-
+// router.post('/admin/user-tasks/assign', assignTaskToUser);
+// router.put('/admin/user-tasks/:id', updateUsersTask);
+// router.post('/user-tasks/custom', createCustomUserTask);
+// // Add to your admin task routes
+// router.delete('/users/:userId/deactivate-tasks', deactivateUserTasks);
 
 
 
 
-/** --- ADMIN VERIFY FORCED TASK --- **/
-router.post('/user-tasks/:userTaskId/verify',  verifyForcedTask);
-
-/** --- ADMIN UPDATE USER TASK LIMIT --- **/
-router.put('/users/:id/task-limit',  updateTaskLimit);
 
 
-router.get('/users/:id/task-history',  getAllUserTasks)
+// /** --- ADMIN VERIFY FORCED TASK --- **/
+// router.post('/user-tasks/:userTaskId/verify',  verifyForcedTask);
 
-router.put('/user/tasks/:id', updateUserTask);
+// /** --- ADMIN UPDATE USER TASK LIMIT --- **/
+// router.put('/users/:id/task-limit',  updateTaskLimit);
 
 
+// router.get('/users/:id/task-history',  getAllUserTasks)
+
+// router.put('/user/tasks/:id', updateUserTask);
+
+
+
+
+router.post('/assign',  assignTasksToUser);
+router.post('/forced',  updateTaskDetails);
+router.put('/:taskId', editTask);
+router.delete('/:taskId', deleteTask);
+router.post('/deactivate-tasks',  deactivateUserTasks);
+router.get('/tasks',  getAllUsersTasks);
 
 
 export default router;

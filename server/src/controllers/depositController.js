@@ -59,21 +59,41 @@ const asyncHandler = fn => (req, res, next) => {
 };
 
 // Get deposit info
-export const getDepositInfo = asyncHandler(async (req, res) => {
-  const wallets = await prisma.adminWallet.findMany({
-    where: { isActive: true },
-    select: {
-      currency: true,
-      address: true,
-      network: true
-    }
-  });
+export const getDepositAddresses = async (req, res) => {
+  try {
+    const settings = await prisma.appSettings.findUnique({
+      where: { id: 1 },
+      select: {
+        bitcoinWallet: true,
+        ethereumWallet: true,
+        usdtWallet: true
+      }
+    });
+    console.log("test");
+    
 
-  res.json({
-    depositWallets: wallets,
-    minDeposit: 10
-  });
-});
+    if (!settings) {
+      return res.status(404).json({ message: "Deposit addresses not configured" });
+    }
+
+    res.json({
+      success: true,
+      addresses: {
+        bitcoin: settings.bitcoinWallet,
+        ethereum: settings.ethereumWallet,
+        usdt: settings.usdtWallet
+      }
+    });
+  } catch (error) {
+    console.error("Get deposit addresses error:", error);
+    console.log(error);
+    
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to get deposit addresses" 
+    });
+  }
+};
 
 // Submit deposit proof
 export const submitDepositProof = asyncHandler(async (req, res) => {
@@ -97,16 +117,16 @@ export const submitDepositProof = asyncHandler(async (req, res) => {
     }
 
     // Verify wallet exists
-    const wallet = await prisma.adminWallet.findFirst({
-      where: { 
-        currency,
-        isActive: true 
-      }
-    });
+    // const wallet = await prisma.adminWallet.findFirst({  
+    //   where: { 
+    //     currency,
+    //     isActive: true 
+    //   }
+    // });
 
-    if (!wallet) {
-      return res.status(400).json({ message: "Invalid currency selected" });
-    }
+    // if (!wallet) {
+    //   return res.status(400).json({ message: "Invalid currency selected" });
+    // }
 
     let proofImageUrl = null;
     
@@ -133,6 +153,7 @@ export const submitDepositProof = asyncHandler(async (req, res) => {
       data: {
         userId,
         amount: parseFloat(amount),
+        currency: currency,
         txHash: txHash || null,
         proofImage: proofImageUrl, // Store Cloudinary URL instead of local path
         status: "pending"
@@ -149,6 +170,6 @@ export const submitDepositProof = asyncHandler(async (req, res) => {
 });
 
 export default {
-  getDepositInfo,
+  
   submitDepositProof
 };
