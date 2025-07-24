@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiCopy, FiCheck, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import QRCode from 'react-qr-code';
 import useDeposit from '../../hooks/useDeposit';
-import Toast from '../components/Toast';
 
 const DepositPage = () => {
   const navigate = useNavigate();
@@ -290,14 +289,7 @@ const DepositPage = () => {
         </div>
       </div>
 
-      {/* Toast Notification */}
-      {toast.show && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast({...toast, show: false})} 
-        />
-      )}
+      
     </div>
   );
 };
