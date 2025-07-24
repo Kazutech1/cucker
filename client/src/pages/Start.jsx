@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaCoins, FaTrophy, FaHeadset } from 'react-icons/fa';
+import { FaCoins, FaTrophy, FaHeadset, FaHistory } from 'react-icons/fa';
 import { 
   FiRefreshCw, FiAlertCircle, FiCheck, 
   FiX, FiClock, FiDollarSign, FiZap 
@@ -11,6 +11,7 @@ import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
 import useTaskManagement from '../../hooks/useStart';
 import DepositTaskPopup, { NormalTaskPopup } from '../components/Toast';
+import TaskHistoryModal from '../components/TakHistoryModal';
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -32,6 +33,8 @@ const Dashboard = () => {
   });
   const [showNoTasksModal, setShowNoTasksModal] = useState(false);
   const [showUpgradeVipModal, setShowUpgradeVipModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
   const navigate = useNavigate();
 
   const toggleSidebar = () => {
@@ -74,6 +77,22 @@ const Dashboard = () => {
       4: 1.2
     };
     return roiRates[level] || 0;
+  };
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchUserProfile(),
+        fetchProfitBalance(),
+        fetchTasks()
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setMessage({ text: 'Failed to load data', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchUserProfile = async () => {
@@ -132,7 +151,6 @@ const Dashboard = () => {
 
   const fetchTasks = async () => {
     try {
-      setLoading(true);
       const fetchedTasks = await getUserTasks();
       const activeTasks = fetchedTasks.filter(task => task.status === 'assigned');
       
@@ -148,8 +166,6 @@ const Dashboard = () => {
         type: 'error',
         isUpgradeRequired: error.message.includes('upgrade your VIP level')
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -178,7 +194,7 @@ const Dashboard = () => {
 
   const handleCompleteTask = async () => {
     try {
-      setLoading(true);
+      setIsCompletingTask(true);
       await completeTask(currentTask.id, "Completed via one-click");
       setProfitEarned(currentTask.profitAmount);
       setTaskCompleted(true);
@@ -188,12 +204,14 @@ const Dashboard = () => {
       setMessage({ text: 'Task completed successfully!', type: 'success' });
       setShowDepositPopup(false);
       setShowNormalPopup(false);
-      fetchTasks();
+      
+      // Refresh all data
+      await fetchAllData();
       
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
-      setLoading(false);
+      setIsCompletingTask(false);
     }
   };
 
@@ -204,7 +222,10 @@ const Dashboard = () => {
       setMessage({ text: 'Task declined', type: 'info' });
       setShowDepositPopup(false);
       setShowNormalPopup(false);
-      fetchTasks();
+      
+      // Refresh all data
+      await fetchAllData();
+      
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -222,9 +243,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchUserProfile();
-    fetchProfitBalance();
-    fetchTasks();
+    fetchAllData();
   }, []);
 
   useEffect(() => {
@@ -264,7 +283,10 @@ const Dashboard = () => {
           </button>
           
           <button
-            onClick={() => setShowNoTasksModal(false)}
+            onClick={() => {
+              setShowNoTasksModal(false);
+              fetchAllData(); // Refresh data when closing modal
+            }}
             className="px-6 py-3 border-2 border-gray-600 rounded-xl hover:bg-gray-700 transition-all font-bold"
           >
             CLOSE
@@ -352,10 +374,18 @@ const Dashboard = () => {
               <div className='text-white'>{getVipLevelName(userData.vipLevel?.level || 0)}</div>
             </div>
           )}
+          
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
+          >
+            <FaHistory className="text-teal-400" />
+            <span className="text-white">Task History</span>
+          </button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Balance Card */}
           <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
             <div className="flex justify-between items-start mb-4">
@@ -402,15 +432,48 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+          
+          {/* Quick Actions Card */}
+          {/* <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4 text-white">Quick Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={fetchAllData}
+                className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
+              >
+                <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+                Refresh Data
+              </button>
+              <button
+                onClick={getNextTask}
+                disabled={tasksLoading || tasks.length === 0}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  tasks.length === 0 
+                    ? 'bg-gray-700 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <FiZap />
+                Get Task
+              </button>
+            </div>
+          </div>*/}
+        </div> 
 
         {message && (
           <div className={`mb-8 p-4 rounded-xl text-center text-white font-bold ${
             message.type === 'error' 
               ? 'bg-red-900/50 border-2 border-red-700/50' 
-              : 'bg-green-900/50 border-2 border-green-700/50'
+              : message.type === 'success'
+                ? 'bg-green-900/50 border-2 border-green-700/50'
+                : 'bg-blue-900/50 border-2 border-blue-700/50'
           }`}>
             {message.text}
+            {message.type === 'success' && profitEarned > 0 && (
+              <div className="mt-2 text-yellow-300">
+                Earned: {formatCurrency(profitEarned)}
+              </div>
+            )}
           </div>
         )}
 
@@ -453,6 +516,7 @@ const Dashboard = () => {
           task={currentTask}
           onClose={handleSkipTask}
           onComplete={handleCompleteTask}
+          loading={isCompletingTask}
         />
       )}
 
@@ -461,7 +525,12 @@ const Dashboard = () => {
           task={currentTask}
           onClose={handleSkipTask}
           onComplete={handleCompleteTask}
+          loading={isCompletingTask}
         />
+      )}
+
+      {showHistoryModal && (
+        <TaskHistoryModal onClose={() => setShowHistoryModal(false)} />
       )}
 
       {showNoTasksModal && (

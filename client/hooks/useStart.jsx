@@ -152,6 +152,64 @@ const useTaskManagement = () => {
     }
   };
 
+
+
+    const getTaskHistory = async ({
+    page = 1,
+    limit = 10,
+    status,
+    dateFrom,
+    dateTo,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+  } = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await api.get('/api/tasks/task-history', {
+        params: {
+          page,
+          limit,
+          status,
+          dateFrom,
+          dateTo,
+          sortBy,
+          sortOrder
+        }
+      });
+
+
+
+      return {
+        tasks: response.data.data.tasks,
+        
+        pagination: response.data.data.pagination
+      };
+      
+    } catch (err) {
+      let errorMessage = 'Failed to fetch task history';
+      
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.message || errorMessage;
+        
+        if (err.response?.status === 400) {
+          if (err.response?.data?.message?.includes('Invalid pagination')) {
+            errorMessage = "Invalid page or limit values";
+          }
+        } else if (err.response?.status === 403) {
+          errorMessage = "Unauthorized to view task history";
+        }
+      }
+      
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const resetError = () => setError(null);
 
   return {
@@ -161,6 +219,7 @@ const useTaskManagement = () => {
     completeTask,
     declineTask,
     getCurrentTask,
+    getTaskHistory, // Add the new function
     resetError
   };
 };

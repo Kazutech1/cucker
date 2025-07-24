@@ -57,19 +57,7 @@ const ComboTaskPopup = ({ task, message, penalty, onVerify, onClose, loading }) 
           >
             Cancel
           </button>
-          <button
-            onClick={onVerify}
-            disabled={loading}
-            className="flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white"
-          >
-            {loading ? (
-              'Verifying...'
-            ) : (
-              <>
-                <FiCheck /> Verify Deposit
-              </>
-            )}
-          </button>
+       
         </div>
       </div>
     </div>

@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, Mail, Phone, DollarSign, Clock, CheckCircle,
   Star, Edit, ArrowLeft, TrendingUp, CreditCard,
   PlusSquare, ArrowUpCircle, ArrowDownCircle, PlusCircle,
-  Layers, PauseCircle, RotateCcw, X, Save, Plus, Minus
+  Layers, PauseCircle, RotateCcw, X, Save, Plus, Minus, Users, RefreshCw
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Toast from '../../components/Toast';
 import useUserAdmin from '../../../hooks/useAdminUsers';
 import UserTasks from './UserTasks';
-import { useRef } from 'react';
-import { deactivateUserTasks } from '../../../../server/src/admin/adminController';
+import useAdminReferralInfo from '../../../hooks/useAdminReferrals';
 
 const UserManagement = () => {
   const { userId } = useParams();
@@ -31,6 +30,7 @@ const UserManagement = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [vipModalOpen, setVipModalOpen] = useState(false);
+  const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [balanceAdjustment, setBalanceAdjustment] = useState({
     amount: '',
@@ -81,19 +81,9 @@ const UserManagement = () => {
     }
   };
 
-
-    const handleQuickAssign = () => {
+  const handleQuickAssign = () => {
     userTasksRef.current?.openAssignModal();
   };
-
-  const handleQuickForceTask = () => {
-    userTasksRef.current?.openForceModal({
-      taskNumber: 1, // Example task number
-      depositAmount: 10, // Example amount
-      profitAmount: 5 // Example profit
-    });
-  };
-
 
   const handleEditSubmit = async () => {
     setIsSubmitting(true);
@@ -217,6 +207,112 @@ const UserManagement = () => {
     }
   };
 
+  const ReferralDashboard = () => {
+    const { 
+      data, 
+      loading, 
+      error, 
+      refetch 
+    } = useAdminReferralInfo(userId);
+  
+    if (loading) return (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  
+    if (error) return (
+      <div className="bg-red-50 border border-red-200 rounded p-4 text-red-600">
+        Error: {error}
+        <button 
+          onClick={refetch}
+          className="ml-4 px-3 py-1 bg-red-100 rounded hover:bg-red-200"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  
+    return (
+      <div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-600">Total Referrals</p>
+            <p className="text-2xl font-bold">{data.totalReferrals}</p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <p className="text-sm text-green-600">Active Referrals</p>
+            <p className="text-2xl font-bold">{data.activeReferrals}</p>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <p className="text-sm text-purple-600">Total Earned</p>
+            <p className="text-2xl font-bold">${data.totalEarned.toFixed(2)}</p>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="font-medium">Referred Users</h3>
+            <button 
+              onClick={refetch}
+              className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+            >
+              <RefreshCw className="mr-1" size={14} />
+              Refresh
+            </button>
+          </div>
+          
+          {data.referredUsers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deposited</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {data.referredUsers.map(user => (
+                    <tr key={user.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            <User className="text-gray-500" size={16} />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">${user.totalDeposited.toFixed(2)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">${user.totalTaskProfit.toFixed(2)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'No activity'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              No referred users found
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (loading && !user) {
     return (
       <div className="flex-1 p-8 flex justify-center items-center">
@@ -280,7 +376,6 @@ const UserManagement = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6 transition-shadow hover:shadow-md">
           <h3 className="text-lg font-semibold mb-4">USER ACTIONS</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* First Row */}
             <button 
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center transition-colors"
               disabled={isSubmitting}
@@ -289,38 +384,36 @@ const UserManagement = () => {
               Reset All Tasks
             </button>
             <button 
-
-             onClick={async () => {
-    try {
-      await deactivateUserTasks(user.id);
-      showToast('User task reception deactivated', 'success');
-    } catch (err) {
-      showToast('Deactivation failed', 'error');
-    }
-  }}
+              onClick={async () => {
+                try {
+                  await deactivateUserTasks(user.id);
+                  setToast({
+                    show: true,
+                    message: 'User task reception deactivated',
+                    type: 'success'
+                  });
+                } catch (err) {
+                  setToast({
+                    show: true,
+                    message: 'Deactivation failed',
+                    type: 'error'
+                  });
+                }
+              }}
               className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 flex items-center justify-center transition-colors"
               disabled={isSubmitting}
             >
               <PauseCircle className="mr-2" size={16} />
               Deactivate Tasks
             </button>
-            {/* <button 
+            <button 
+              onClick={() => setReferralModalOpen(true)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center justify-center transition-colors"
               disabled={isSubmitting}
             >
-              <Layers className="mr-2" size={16} />
-              Add Combo Tasks
+              <Users className="mr-2" size={16} />
+              View Referrals
             </button>
-            <button 
-              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center justify-center transition-colors"
-              disabled={isSubmitting}
-              onClick={handleQuickAssign}
-            >
-              <PlusCircle className="mr-2" size={16} />
-              Add Normal Tasks
-            </button> */}
-
-            {/* Second Row */}
             <button 
               onClick={() => {
                 setBalanceAdjustment({ 
@@ -360,13 +453,6 @@ const UserManagement = () => {
             >
               <Star className="mr-2" size={16} />
               Upgrade VIP
-            </button>
-            <button 
-              className="px-4 py-2 bg-fuchsia-600 text-white rounded-md hover:bg-fuchsia-700 flex items-center justify-center transition-colors"
-              disabled={isSubmitting}
-            >
-              <PlusSquare className="mr-2" size={16} />
-              Add More Tasks
             </button>
           </div>
         </div>
@@ -490,13 +576,30 @@ const UserManagement = () => {
               </div>
             </div>
           </div>
-
-
-          
- 
-
         </div>
-             <UserTasks userId={user.id} />
+
+        {/* User Tasks Section */}
+        <UserTasks userId={user.id} ref={userTasksRef} />
+
+        {/* Referral Info Modal */}
+        {referralModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Referral Information</h2>
+                  <button 
+                    onClick={() => setReferralModalOpen(false)} 
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <ReferralDashboard />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit User Modal */}
         {editModalOpen && (
@@ -819,6 +922,7 @@ const UserManagement = () => {
             onClose={() => setToast({...toast, show: false})} 
           />
         )}
+        
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import Dashboard from '../components/Dashboard';
 import Deposit from './Deposit';
+import Notifications from './Notifications';
 import Products from './Products';
 import SettingsPage from './Settings';
 import UsersList from './UserList';
@@ -34,6 +35,10 @@ const adminRoutes = [
   {
     path: 'vip',
     element: <VipManagement />,
+  },
+    {
+    path: 'notifications',
+    element: <Notifications />,
   },
    {
     path: 'products',

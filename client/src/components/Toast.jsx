@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { FiX, FiCheck, FiClock } from 'react-icons/fi';
+import { useState } from 'react';
+import { FiX, FiCheck, FiClock, FiLoader } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
 
 
 
@@ -51,13 +53,10 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
       document.querySelector('.auto-close-warning').classList.add('show');
     }, 25000);
 
-    const closeTimer = setTimeout(() => {
-      onClose();
-    }, 30000);
+   
 
     return () => {
       clearTimeout(warningTimer);
-      clearTimeout(closeTimer);
     };
   }, [onClose]);
 
@@ -87,10 +86,9 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
           
           <div className="banner">
             <span>LUCKY COMBO</span>
-            <div className="auto-close-warning">Closing in 5 seconds...</div>
           </div>
           
-          <div className="main-title">Jackpot!</div>
+          <div className="main-title">LUCKY!</div>
           
           <div className="win-messages">
             <div className="win-text">You hit a Lucky Combo!</div>
@@ -101,20 +99,18 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
           
           <div className="congratulations">Congratulations!</div>
           
+          
           <div className="action-buttons">
-            <button 
-              className="secondary-btn" 
-              onClick={onClose}
-            >
-              Maybe Later
-            </button>
-            <button 
+           <Link to="/deposit">
+           <button 
               className="claim-btn" 
-              onClick={onComplete}
               autoFocus
             >
-              Claim Your Prize
+             Deposit {task.depositAmount} To Claim Your Prize
             </button>
+           
+           </Link>
+            
           </div>
           
           <div className="confetti">
@@ -334,7 +330,7 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
         }
 
         .prize-amount {
-          background: linear-gradient(135deg, #fefcbf 0%, #facc15 50%, #f59e0b 100%);
+          background: linear-gradient(135deg, #fefcbf 0%, #facc15 50%, #f59e0b 100%,), #000;
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -342,7 +338,7 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
           font-weight: 800;
           margin: 20px 0;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          filter: drop-shadow(0 2px 8px rgba(250, 204, 21, 0.4));
+          filter: drop-shadow(0 2px 8px rgba(20, 0, 21, 0.4));
           animation: prizeGlow 2s ease-in-out infinite alternate;
           letter-spacing: -1px;
           position: relative;
@@ -510,27 +506,23 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
 export default DepositTaskPopup;
 
 export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
-  useEffect(() => {
-    // Auto-close after 30 seconds with warning
-    const warningTimer = setTimeout(() => {
-      document.querySelector('.auto-close-warning').classList.add('show');
-    }, 25000);
+  const [isCompleting, setIsCompleting] = useState(false);
 
-    const closeTimer = setTimeout(() => {
-      onClose();
-    }, 30000);
-
-    return () => {
-      clearTimeout(warningTimer);
-      clearTimeout(closeTimer);
-    };
-  }, [onClose]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
     }).format(amount || 0);
+  };
+
+  const handleComplete = async () => {
+    setIsCompleting(true);
+    try {
+      await onComplete();
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   return (
@@ -540,6 +532,7 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
           className="close-btn" 
           onClick={onClose}
           aria-label="Close popup"
+          disabled={isCompleting}
         >
           <FiX size={20} />
         </button>
@@ -548,7 +541,6 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
           <div className="header">
             <div className="badge">Normal Task</div>
             <h3 className="title">{task.product.name}</h3>
-            <div className="auto-close-warning">Closing in 5 seconds...</div>
           </div>
           
           <div className="image-container">
@@ -567,12 +559,7 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
               <span className="value reward">{formatCurrency(task.profitAmount)}</span>
             </div>
             
-            <div className="detail-row">
-              <span className="label">Time:</span>
-              <span className="value time">
-                <FiClock className="icon" /> 30 seconds
-              </span>
-            </div>
+          
             
             <div className="review">
               <p className="review-label">Review:</p>
@@ -581,18 +568,21 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
           </div>
           
           <div className="action-buttons">
-            {/* <button 
-              className="secondary-btn" 
-              onClick={onClose}
-            >
-              Skip Task
-            </button> */}
             <button 
               className="complete-btn" 
-              onClick={onComplete}
+              onClick={handleComplete}
               autoFocus
+              disabled={isCompleting}
             >
-              <FiCheck className="icon" /> Complete Task
+              {isCompleting ? (
+                <>
+                  <FiLoader className="icon animate-spin" /> Completing Task...
+                </>
+              ) : (
+                <>
+                  <FiCheck className="icon" /> Complete Task
+                </>
+              )}
             </button>
           </div>
           
@@ -603,6 +593,7 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
           </div>
         </div>
       </div>
+ 
 
       <style jsx global>{`
         .popup-container {
@@ -725,7 +716,7 @@ export const NormalTaskPopup = ({ task, onClose, onComplete }) => {
         .task-image {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
           transition: transform 0.5s ease;
         }
 

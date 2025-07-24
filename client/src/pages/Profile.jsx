@@ -20,6 +20,7 @@ import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/Spinner';
+import { Users } from 'lucide-react';
 
 const ProfilePage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -118,7 +119,7 @@ const ProfilePage = () => {
   }, []);
 
   const menuItems = [
-    { icon: <FiBookmark />, label: "Withdraw Funds", path: "/withdraw" },
+    { icon: <Users />, label: "My Team", path: "/referrals" },
     { icon: <FiMail />, label: "Transaction History", path: "/transactions" },
     { icon: <FiPersonal />, label: "Personal Information", path: "/personal" },
     { icon: <FiHelpCircle />, label: "Customer Service", path: "/support" },
@@ -192,9 +193,18 @@ const ProfilePage = () => {
             <h2 className="text-2xl font-bold text-teal-400">{userData.username}</h2>
            
             <div className="flex flex-wrap gap-2 mt-2">
-              <span className="bg-teal-400/10 text-teal-400 px-3 py-1 rounded-full text-sm">
-                Invite Code: {userData.referralCode}
-              </span>
+             <div className="flex items-center gap-2 bg-teal-400/10 text-teal-400 px-3 py-1 rounded-full text-sm font-semibold">
+  <span>
+    Invite Code: <span className="font-bold">{userData.referralCode}</span>
+  </span>
+  <button
+    onClick={() => navigator.clipboard.writeText(userData.referralCode)}
+    className="text-xs bg-teal-400/20 hover:bg-teal-400/30 text-teal-600 px-2 py-0.5 rounded transition"
+  >
+    Copy
+  </button>
+</div>
+
               <div className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-gray-300 text-gray-900 px-3 py-1 rounded-full text-sm font-bold">
                 <svg className="mr-1" fill="currentColor" viewBox="0 0 24 24" width="14" height="14">
                   <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1.06 13.54L7.4 12l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>

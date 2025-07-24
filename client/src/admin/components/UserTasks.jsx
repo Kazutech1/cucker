@@ -16,7 +16,8 @@ import {
   Tag,
   Space,
   Popconfirm,
-  Divider
+  Divider,
+  Spin
 } from 'antd';
 import {
   Edit2,
@@ -65,6 +66,7 @@ const UserTasks = ({ userId }) => {
     totalProfit: 0
   });
   const [isComboTask, setIsComboTask] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [assignForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -78,6 +80,7 @@ const UserTasks = ({ userId }) => {
 
   const fetchTasks = async () => {
     try {
+      setActionLoading(true);
       const params = {
         userId,
         status: filters.status,
@@ -100,7 +103,7 @@ const UserTasks = ({ userId }) => {
       });
 
       // Calculate stats
-      const totalTasks = data.length;
+      const totalTasks = paginationData.total;
       const completedTasks = data.filter(task => task.status === 'completed').length;
       const pendingTasks = data.filter(task => task.status === 'pending').length;
       const totalProfit = data.reduce((sum, task) => sum + (task.profitAmount || 0), 0);
@@ -113,6 +116,8 @@ const UserTasks = ({ userId }) => {
       });
     } catch (err) {
       message.error(err.message || 'Failed to fetch tasks');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -127,6 +132,7 @@ const UserTasks = ({ userId }) => {
     setFilters(prev => ({
       ...prev,
       status: filters.status?.[0],
+      isForced: filters.isForced?.[0],
       sortBy: sorter.field || 'createdAt',
       sortOrder: sorter.order === 'ascend' ? 'asc' : 'desc'
     }));
@@ -134,8 +140,10 @@ const UserTasks = ({ userId }) => {
 
   const handleAssignTasks = async () => {
     try {
+      setActionLoading(true);
       const values = await assignForm.validateFields();
-      const result = await assignTasksToUser({
+      
+      await assignTasksToUser({
         userId,
         taskCount: values.taskCount,
         totalProfit: values.totalProfit,
@@ -144,47 +152,51 @@ const UserTasks = ({ userId }) => {
         customProfit: values.customProfit
       });
 
-      message.success(`Successfully assigned ${result.data.length} tasks`);
+      message.success('Tasks assigned successfully!');
       setAssignModalVisible(false);
       assignForm.resetFields();
-      fetchTasks();
+      await fetchTasks();
     } catch (err) {
       message.error(err.message || 'Failed to assign tasks');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleEditTask = async () => {
     try {
+      setActionLoading(true);
       const values = await editForm.validateFields();
-      console.log(selectedTask.id);
       
-      const updatedTask = await editTask(selectedTask.id, {
+      await editTask(selectedTask.id, {
         ...values,
-        // Only include these fields if it's a combo task
         ...(isComboTask && {
           depositAmount: values.depositAmount,
-          customProfit: values.customProfit
+          customProfit: values.customProfit,
+          makeForced: true
         })
       });
       
-      setTasks(prev => prev.map(task => 
-        task._id === updatedTask._id ? updatedTask : task
-      ));
-      
-      message.success('Task updated successfully');
+      message.success('Task updated successfully!');
       setEditModalVisible(false);
+      await fetchTasks();
     } catch (err) {
       message.error(err.message || 'Failed to update task');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     try {
+      setActionLoading(true);
       await deleteTask(taskId);
-      message.success('Task deleted successfully');
-      fetchTasks();
+      message.success('Task deleted successfully!');
+      await fetchTasks();
     } catch (err) {
       message.error(err.message || 'Failed to delete task');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -213,6 +225,21 @@ const UserTasks = ({ userId }) => {
     }
   };
 
+  const resetFilters = () => {
+    setFilters({
+      status: undefined,
+      isForced: undefined,
+      dateRange: undefined,
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    });
+    setPagination({
+      current: 1,
+      pageSize: 20,
+      total: 0
+    });
+  };
+
   const columns = [
     {
       title: 'Task #',
@@ -224,7 +251,7 @@ const UserTasks = ({ userId }) => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: status => <Tag color={statusColors[status]}>{status}</Tag>,
+      render: status => <Tag color={statusColors[status]}>{status.toUpperCase()}</Tag>,
       filters: [
         { text: 'Pending', value: 'pending' },
         { text: 'Completed', value: 'completed' },
@@ -238,7 +265,7 @@ const UserTasks = ({ userId }) => {
       key: 'isForced',
       render: isForced => (
         <Tag color={isForced ? 'volcano' : 'geekblue'}>
-          {isForced ? 'Combo' : 'Normal'}
+          {isForced ? 'COMBO' : 'NORMAL'}
         </Tag>
       ),
       filters: [
@@ -268,228 +295,267 @@ const UserTasks = ({ userId }) => {
       sorter: true
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space size="middle">
-          <Button
-            icon={<Edit2 size={16} />}
-            onClick={() => handleEditClick(record)}
-          />
-          <Popconfirm
-            title="Are you sure to delete this task?"
-            onConfirm={() => handleDeleteTask(record._id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button icon={<Trash2 size={16} />} danger />
-          </Popconfirm>
-        </Space>
+  title: 'Actions',
+  key: 'actions',
+  fixed: 'right',
+  width: 120,
+  render: (_, record) => (
+    <Space size="small">
+      {record.status !== 'completed' && (
+        <Button
+          icon={<Edit2 size={16} />}
+          onClick={() => handleEditClick(record)}
+          disabled={actionLoading}
+        />
+      )}
+      <Popconfirm
+        title="Are you sure to delete this task?"
+        onConfirm={() => handleDeleteTask(record._id)}
+        okText="Yes"
+        cancelText="No"
+        disabled={actionLoading}
+      >
+        <Button 
+          icon={<Trash2 size={16} />} 
+          danger 
+          disabled={actionLoading}
+        />
+      </Popconfirm>
+    </Space>
+  
       )
     }
   ];
 
   return (
-    <div>
-      <Card>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Statistic title="Total Tasks" value={stats.totalTasks} />
-          </Col>
-          <Col span={6}>
-            <Statistic title="Completed Tasks" value={stats.completedTasks} />
-          </Col>
-          <Col span={6}>
-            <Statistic title="Pending Tasks" value={stats.pendingTasks} />
-          </Col>
-          <Col span={6}>
-            <Statistic title="Total Profit" prefix="$" value={stats.totalProfit.toFixed(2)} />
-          </Col>
-        </Row>
-      </Card>
+    <Spin spinning={loading && !actionLoading} tip="Loading...">
+      <div>
+        <Card>
+          <Row gutter={16}>
+            <Col span={6}>
+              <Statistic title="Total Tasks" value={stats.totalTasks} />
+            </Col>
+            <Col span={6}>
+              <Statistic title="Completed Tasks" value={stats.completedTasks} />
+            </Col>
+            <Col span={6}>
+              <Statistic title="Pending Tasks" value={stats.pendingTasks} />
+            </Col>
+            <Col span={6}>
+              <Statistic 
+                title="Total Profit" 
+                prefix="$" 
+                value={stats.totalProfit.toFixed(2)} 
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Col>
+          </Row>
+        </Card>
 
-      <Divider />
+        <Divider />
 
-      <Card
-        title="Tasks Management"
-        extra={
-          <Space>
-            <Button
-              type="primary"
-              icon={<Plus size={16} />}
-              onClick={() => setAssignModalVisible(true)}
-            >
-              Assign Tasks
-            </Button>
-            <Button
-              icon={<RefreshCw size={16} />}
-              onClick={fetchTasks}
-            >
-              Refresh
-            </Button>
-          </Space>
-        }
-      >
-        <div style={{ marginBottom: 16 }}>
-          <RangePicker
-            showTime
-            style={{ width: '100%', maxWidth: 400 }}
-            onChange={(dates) => setFilters(prev => ({
-              ...prev,
-              dateRange: dates
-            }))}
+        <Card
+          title="Tasks Management"
+          extra={
+            <Space>
+              <Button
+                type="primary"
+                icon={<Plus size={16} />}
+                onClick={() => setAssignModalVisible(true)}
+                loading={actionLoading}
+              >
+                Assign Tasks
+              </Button>
+              <Button
+                icon={<RefreshCw size={16} />}
+                onClick={fetchTasks}
+                loading={actionLoading}
+              >
+                Refresh
+              </Button>
+              <Button
+                onClick={resetFilters}
+                disabled={actionLoading}
+              >
+                Reset Filters
+              </Button>
+            </Space>
+          }
+        >
+          <div style={{ marginBottom: 16 }}>
+            <Space>
+              <RangePicker
+                showTime
+                style={{ width: '100%', maxWidth: 400 }}
+                onChange={(dates) => setFilters(prev => ({
+                  ...prev,
+                  dateRange: dates
+                }))}
+                disabled={actionLoading}
+              />
+              <Select
+                style={{ width: 200 }}
+                placeholder="Filter by status"
+                allowClear
+                value={filters.status}
+                onChange={(value) => setFilters(prev => ({
+                  ...prev,
+                  status: value
+                }))}
+                disabled={actionLoading}
+              >
+                <Option value="pending">Pending</Option>
+                <Option value="completed">Completed</Option>
+                <Option value="failed">Failed</Option>
+                <Option value="cancelled">Cancelled</Option>
+              </Select>
+              <Select
+                style={{ width: 150 }}
+                placeholder="Filter by type"
+                allowClear
+                value={filters.isForced}
+                onChange={(value) => setFilters(prev => ({
+                  ...prev,
+                  isForced: value
+                }))}
+                disabled={actionLoading}
+              >
+                <Option value={true}>Combo</Option>
+                <Option value={false}>Normal</Option>
+              </Select>
+              <Button
+                type="primary"
+                icon={<Search size={16} />}
+                onClick={fetchTasks}
+                loading={actionLoading}
+              >
+                Search
+              </Button>
+            </Space>
+          </div>
+
+          <Table
+            columns={columns}
+            dataSource={tasks}
+            rowKey="_id"
+            loading={actionLoading}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total) => `Total ${total} tasks`
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: true }}
           />
-          <Select
-            style={{ width: 200, marginLeft: 8 }}
-            placeholder="Filter by status"
-            allowClear
-            onChange={(value) => setFilters(prev => ({
-              ...prev,
-              status: value
-            }))}
-          >
-            <Option value="pending">Pending</Option>
-            <Option value="completed">Completed</Option>
-            <Option value="failed">Failed</Option>
-            <Option value="cancelled">Cancelled</Option>
-          </Select>
-          <Select
-            style={{ width: 150, marginLeft: 8 }}
-            placeholder="Filter by type"
-            allowClear
-            onChange={(value) => setFilters(prev => ({
-              ...prev,
-              isForced: value
-            }))}
-          >
-            <Option value={true}>Combo</Option>
-            <Option value={false}>Normal</Option>
-          </Select>
-          <Button
-            type="primary"
-            icon={<Search size={16} />}
-            style={{ marginLeft: 8 }}
-            onClick={fetchTasks}
-          >
-            Search
-          </Button>
-        </div>
+        </Card>
 
-        <Table
-          columns={columns}
-          dataSource={tasks}
-          rowKey="_id"
-          loading={loading}
-          pagination={pagination}
-          onChange={handleTableChange}
-          scroll={{ x: true }}
-        />
-      </Card>
+        {/* Assign Tasks Modal */}
+        <Modal
+          title="Assign New Tasks"
+          visible={assignModalVisible}
+          onOk={handleAssignTasks}
+          onCancel={() => {
+            setAssignModalVisible(false);
+            assignForm.resetFields();
+          }}
+          confirmLoading={actionLoading}
+          destroyOnClose
+        >
+          <Form form={assignForm} layout="vertical">
+            <Form.Item
+              name="taskCount"
+              label="Number of Tasks"
+              rules={[{ required: true, message: 'Please input the number of tasks' }]}
+            >
+              <InputNumber min={1} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+            <Form.Item
+              name="totalProfit"
+              label="Total Profit"
+              rules={[{ required: true, message: 'Please input the total profit' }]}
+            >
+              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+            <Form.Item
+              name="comboNumber"
+              label="Combo Task Number (optional)"
+            >
+              <InputNumber min={1} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+            <Form.Item
+              name="depositAmount"
+              label="Deposit Amount (optional)"
+            >
+              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+            <Form.Item
+              name="customProfit"
+              label="Custom Profit (optional)"
+            >
+              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+          </Form>
+        </Modal>
 
-      {/* Assign Tasks Modal */}
-      <Modal
-        title="Assign New Tasks"
-        visible={assignModalVisible}
-        onOk={handleAssignTasks}
-        onCancel={() => {
-          setAssignModalVisible(false);
-          assignForm.resetFields();
-        }}
-        confirmLoading={loading}
-      >
-        <Form form={assignForm} layout="vertical">
-          <Form.Item
-            name="taskCount"
-            label="Number of Tasks"
-            rules={[{ required: true, message: 'Please input the number of tasks' }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="totalProfit"
-            label="Total Profit"
-            rules={[{ required: true, message: 'Please input the total profit' }]}
-          >
-            <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="comboNumber"
-            label="Combo Task Number (optional)"
-          >
-            <InputNumber min={1} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="depositAmount"
-            label="Deposit Amount (optional)"
-          >
-            <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="customProfit"
-            label="Custom Profit (optional)"
-          >
-            <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Edit Task Modal */}
-      <Modal
-        title={`Edit Task #${selectedTask?.taskNumber}`}
-        visible={editModalVisible}
-        onOk={handleEditTask}
-        onCancel={() => {
-          setEditModalVisible(false);
-          editForm.resetFields();
-        }}
-        confirmLoading={loading}
-      >
-        <Form form={editForm} layout="vertical">
-          <Form.Item
-            name="status"
-            label="Status"
-          >
-            <Select>
-              <Option value="pending">Pending</Option>
-              <Option value="completed">Completed</Option>
-              <Option value="failed">Failed</Option>
-              <Option value="cancelled">Cancelled</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="profitAmount"
-            label="Profit Amount"
-          >
-            <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="makeCombo"
-            label="Task Type"
-          >
-            <Select onChange={handleComboChange}>
-              <Option value={false}>Normal</Option>
-              <Option value={true}>Combo</Option>
-            </Select>
-          </Form.Item>
-          {isComboTask && (
-            <>
-              <Form.Item
-                name="depositAmount"
-                label="Deposit Amount"
-              >
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item
-                name="customProfit"
-                label="Custom Profit"
-              >
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-              </Form.Item>
-            </>
-          )}
-        </Form>
-      </Modal>
-    </div>
+        {/* Edit Task Modal */}
+        <Modal
+          title={`Edit Task #${selectedTask?.taskNumber}`}
+          visible={editModalVisible}
+          onOk={handleEditTask}
+          onCancel={() => {
+            setEditModalVisible(false);
+            editForm.resetFields();
+          }}
+          confirmLoading={actionLoading}
+          destroyOnClose
+        >
+          <Form form={editForm} layout="vertical">
+            <Form.Item
+              name="status"
+              label="Status"
+            >
+              <Select disabled={actionLoading}>
+                <Option value="pending">Assigned</Option>
+                <Option value="completed">Completed</Option>
+                <Option value="failed">Rejected</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item
+              name="profitAmount"
+              label="Profit Amount"
+            >
+              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+            </Form.Item>
+            <Form.Item
+              name="makeCombo"
+              label="Task Type"
+            >
+              <Select onChange={handleComboChange} disabled={actionLoading}>
+                <Option value={false}>Normal</Option>
+                <Option value={true}>Combo</Option>
+              </Select>
+            </Form.Item>
+            {isComboTask && (
+              <>
+                <Form.Item
+                  name="depositAmount"
+                  label="Deposit Amount"
+                >
+                  <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+                </Form.Item>
+                <Form.Item
+                  name="customProfit"
+                  label="Custom Profit"
+                >
+                  <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+                </Form.Item>
+              </>
+            )}
+          </Form>
+        </Modal>
+      </div>
+    </Spin>
   );
 };
 

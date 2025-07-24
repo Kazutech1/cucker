@@ -26,6 +26,7 @@ import ATests from './admin/components/Test';
 import AUsers from './admin/components/TasksManagement';
 import AdminDashboard from './admin/components/AdminDashboard';
 import adminRoutes from './admin/components/adminRoutes';
+import ReferralPage from './pages/Referrals';
 
 function App() {
   return (
@@ -38,6 +39,8 @@ function App() {
         <Route path="/level" element={<VIPLevelsPage />} />
         <Route path="/withdraw" element={<WithdrawPage />} />
         <Route path="/transactions" element={<TransactionHistory />} />
+                <Route path="/referrals" element={<ReferralPage />} />
+
         <Route path="/deposit" element={<DepositPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
          <Route path="/personal" element={<UpdateProfilePage />} />

@@ -1,5 +1,6 @@
-import { Menu, X, LayoutDashboard, Users, Wallet, ArrowUpDown, Settings, Star } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, Wallet, ArrowUpDown, Settings, Star, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
+import { FaProductHunt } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const AdminLayout = ({ children }) => {
@@ -15,8 +16,9 @@ const AdminLayout = ({ children }) => {
     { id: 'users', icon: <Users size={20} />, label: 'Users' },
     { id: 'deposits', icon: <Wallet size={20} />, label: 'Deposits' },
     { id: 'withdrawals', icon: <ArrowUpDown size={20} />, label: 'Withdrawals' },
-    { id: 'products', icon: <Star size={20} />, label: 'Products Management' }, // Changed icon to Star
+    { id: 'products', icon: <FaProductHunt size={20} />, label: 'Products Management' }, // Changed icon to Star
     { id: 'vip', icon: <Star size={20} />, label: 'VIP Management' }, // Changed icon to Star
+    { id: 'notifications', icon: <MessageCircle size={20} />, label: 'Notifications' }, // Changed icon to Star
     { id: 'settings', icon: <Settings size={20} />, label: 'Settings' },
   ];
 

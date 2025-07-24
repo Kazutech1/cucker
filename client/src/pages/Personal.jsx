@@ -2,37 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiArrowLeft, 
-  FiHome, 
-  FiTrendingUp, 
-  FiAward, 
   FiUser, 
   FiMenu, 
   FiX,
-  FiBookmark,
-  FiMail,
-  FiHelpCircle,
-  FiBell,
-  FiLogOut,
   FiCamera,
-  FiTrash2
+  FiTrash2,
+  FiCheckCircle,
+  FiAlertCircle
 } from 'react-icons/fi';
-import Navbar from '../components/NavBar';
-import Sidebar from '../components/SideBar';
-import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/Spinner';
 
 const UpdateProfilePage = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState(localStorage.getItem('token'));
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userData, setUserData] = useState({
-    username: 'Loading...',
-    email: 'Loading...',
+    username: '',
+    email: '',
     fullName: '',
     phoneNumber: '',
     profilePicture: '',
-    referralCode: 'Loading...',
-    vipLevel: { name: 'Loading...', profitPerOrder: 0 },
+    referralCode: '',
+    vipLevel: { name: '', profitPerOrder: 0 },
     balance: 0,
     walletAddress: ''
   });
@@ -43,10 +33,6 @@ const UpdateProfilePage = () => {
   const [profilePictureFile, setProfilePictureFile] = useState(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState('');
   const fileInputRef = useRef(null);
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
 
   // Fetch current profile data and withdrawal address
   const fetchProfileAndAddress = async () => {
@@ -92,13 +78,13 @@ const UpdateProfilePage = () => {
       const withdrawalData = await withdrawalResponse.json();
 
       setUserData({
-        username: profileData.user.username || 'Loading...',
-        email: profileData.user.email || 'Loading...',
+        username: profileData.user.username || '',
+        email: profileData.user.email || '',
         fullName: profileData.user.fullName || '',
         phoneNumber: profileData.user.phoneNumber || '',
         profilePicture: profileData.user.profilePicture || '',
-        referralCode: profileData.user.referralCode || 'Loading...',
-        vipLevel: profileData.user.vipLevel || { name: 'Loading...', profitPerOrder: 0 },
+        referralCode: profileData.user.referralCode || '',
+        vipLevel: profileData.user.vipLevel || { name: '', profitPerOrder: 0 },
         balance: profileData.user.balance || 0,
         walletAddress: withdrawalData.withdrawalAddress || ''
       });
@@ -124,12 +110,13 @@ const UpdateProfilePage = () => {
         return;
       }
       
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Image size should be less than 5MB');
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit (reduced from 5MB for better UX)
+        setError('Image size should be less than 2MB');
         return;
       }
 
       setProfilePictureFile(file);
+      setError(null); // Clear previous errors
       
       // Create preview URL
       const reader = new FileReader();
@@ -143,7 +130,7 @@ const UpdateProfilePage = () => {
   // Remove selected profile picture
   const removePicture = () => {
     setProfilePictureFile(null);
-    setProfilePicturePreview('');
+    setProfilePicturePreview(userData.profilePicture || '');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -160,8 +147,8 @@ const UpdateProfilePage = () => {
       const formData = new FormData();
       
       // Add profile data if changed
-      if (userData.fullName) formData.append('fullName', userData.fullName);
-      if (userData.phoneNumber) formData.append('phoneNumber', userData.phoneNumber);
+      if (userData.fullName !== '') formData.append('fullName', userData.fullName);
+      if (userData.phoneNumber !== '') formData.append('phoneNumber', userData.phoneNumber);
       
       // Add profile picture if selected
       if (profilePictureFile) {
@@ -186,7 +173,7 @@ const UpdateProfilePage = () => {
       }
 
       // Then update wallet address if changed
-      if (userData.walletAddress) {
+      if (userData.walletAddress && userData.walletAddress !== '') {
         const addressResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/withdrawal/address`, {
           method: 'POST',
           headers: {
@@ -204,9 +191,10 @@ const UpdateProfilePage = () => {
       }
 
       // Only show success if at least one update was made
-      if (formData.has('fullName') || formData.has('phoneNumber') || formData.has('profilePicture') || userData.walletAddress) {
+      if (formData.has('fullName') || formData.has('phoneNumber') || formData.has('profilePicture') || (userData.walletAddress && userData.walletAddress !== '')) {
         setSuccess('Profile updated successfully!');
         // Refresh profile data
+        setTimeout(() => setSuccess(null), 3000); // Auto-dismiss success message
         fetchProfileAndAddress();
       } else {
         throw new Error('Please fill in at least one field to update.');
@@ -229,32 +217,30 @@ const UpdateProfilePage = () => {
   }, [token, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16">
+    <div className="min-h-screen bg-gray-900 text-white pb-16">
       {isLoading && <LoadingSpinner />}
 
       {/* Top Bar */}
-      <div className="fixed top-0 left-0 right-0 z-15 p-5 flex justify-between items-center bg-black/30 backdrop-blur-md border-b border-teal-400/15">
+      <div className="fixed top-0 left-0 right-0 z-15 p-4 flex justify-between items-center bg-gray-800 border-b border-gray-700 shadow-md">
         <button 
           onClick={() => navigate(-1)}
-          className="bg-black/60 backdrop-blur-md border border-teal-400/15 rounded-xl p-3 cursor-pointer"
+          className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+          aria-label="Go back"
         >
           <FiArrowLeft className="w-6 h-6 text-teal-400" />
         </button>
-        <div className="w-14"></div> {/* Spacer for centering */}
+        <h1 className="text-xl font-bold text-teal-400">Update Profile</h1>
+        <div className="w-10"></div> {/* Spacer for centering */}
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 pt-24 pb-32 max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-teal-400 to-teal-500 bg-clip-text text-transparent">
-          Update Profile
-        </h1>
-
+      <div className="container mx-auto px-4 pt-20 pb-20 max-w-md">
         {/* Profile Card */}
-        <div className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6 mb-6">
+        <div className="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
           {/* Profile Picture Section */}
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-teal-400/30 bg-gray-800 flex items-center justify-center">
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-teal-400/20 bg-gray-700 flex items-center justify-center transition-all duration-300 group-hover:border-teal-400/40">
                 {profilePicturePreview ? (
                   <img 
                     src={profilePicturePreview} 
@@ -267,56 +253,55 @@ const UpdateProfilePage = () => {
               </div>
               <button
                 onClick={() => fileInputRef.current.click()}
-                className="absolute bottom-0 right-0 bg-teal-500 rounded-full p-2 hover:bg-teal-400 transition-colors"
+                className="absolute bottom-0 right-0 bg-teal-500 rounded-full p-2 hover:bg-teal-400 transition-all shadow-md hover:shadow-teal-400/30"
+                aria-label="Change profile picture"
               >
                 <FiCamera className="w-5 h-5 text-white" />
               </button>
               {profilePicturePreview && (
                 <button
                   onClick={removePicture}
-                  className="absolute top-0 right-0 bg-red-500 rounded-full p-2 hover:bg-red-400 transition-colors"
+                  className="absolute top-0 right-0 bg-red-500 rounded-full p-2 hover:bg-red-400 transition-all shadow-md hover:shadow-red-400/30"
+                  aria-label="Remove profile picture"
                 >
                   <FiTrash2 className="w-5 h-5 text-white" />
                 </button>
               )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePictureChange}
+                accept="image/*"
+                className="hidden"
+              />
             </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handlePictureChange}
-              accept="image/*"
-              className="hidden"
-            />
             <p className="text-gray-400 text-sm mt-2">
-              {profilePictureFile ? 'New image selected' : 'Click camera to upload'}
+              {profilePictureFile ? 'New image selected' : 'Click to upload (max 2MB)'}
             </p>
           </div>
 
           {/* Read-Only Profile Info */}
-          <div className="space-y-4 mb-6">
-            <div>
-              <p className="text-gray-400 text-sm">Username</p>
-              <p className="text-teal-400 font-medium">{userData.username}</p>
+          <div className="space-y-4 mb-8">
+            <div className="bg-gray-700/50 p-3 rounded-lg">
+              <p className="text-gray-400 text-xs uppercase tracking-wider">Username</p>
+              <p className="text-teal-400 font-medium truncate">{userData.username || 'Not set'}</p>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">Email</p>
-              <p className="text-teal-400 font-medium">{userData.email}</p>
+            <div className="bg-gray-700/50 p-3 rounded-lg">
+              <p className="text-gray-400 text-xs uppercase tracking-wider">Email</p>
+              <p className="text-teal-400 font-medium truncate">{userData.email || 'Not set'}</p>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">Referral Code</p>
-              <p className="text-teal-400 font-medium">{userData.referralCode}</p>
+            <div className="bg-gray-700/50 p-3 rounded-lg">
+              <p className="text-gray-400 text-xs uppercase tracking-wider">Referral Code</p>
+              <p className="text-teal-400 font-medium">{userData.referralCode || 'Not set'}</p>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">VIP Level</p>
-              <div className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-gray-300 text-gray-900 px-3 py-1 rounded-full text-sm font-bold">
-                <svg className="mr-1" fill="currentColor" viewBox="0 0 24 24" width="14" height="14">
-                  <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1.06 13.54L7.4 12l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z"/>
-                </svg>
-                {userData.vipLevel.name}
+            <div className="bg-gray-700/50 p-3 rounded-lg">
+              <p className="text-gray-400 text-xs uppercase tracking-wider">VIP Level</p>
+              <div className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-1">
+                {userData.vipLevel.name || 'Not set'}
               </div>
             </div>
-            <div>
-              <p className="text-gray-400 text-sm">Balance</p>
+            <div className="bg-gray-700/50 p-3 rounded-lg">
+              <p className="text-gray-400 text-xs uppercase tracking-wider">Balance</p>
               <p className="text-teal-400 font-medium">
                 {new Intl.NumberFormat('en-US', {
                   style: 'currency',
@@ -327,21 +312,23 @@ const UpdateProfilePage = () => {
           </div>
 
           {/* Update Profile Form */}
-          <form onSubmit={handleUpdateProfile} className="bg-black/60 backdrop-blur-md border border-teal-400/20 rounded-xl p-6">
+          <form onSubmit={handleUpdateProfile}>
             {error && (
-              <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-3 mb-4 text-red-400 text-sm">
+              <div className="flex items-center bg-red-900/20 border border-red-400/50 rounded-lg p-3 mb-4 text-red-400 text-sm">
+                <FiAlertCircle className="mr-2 flex-shrink-0" />
                 {error}
               </div>
             )}
             {success && (
-              <div className="bg-green-400/10 border border-green-400/30 rounded-lg p-3 mb-4 text-green-400 text-sm">
+              <div className="flex items-center bg-green-900/20 border border-green-400/50 rounded-lg p-3 mb-4 text-green-400 text-sm">
+                <FiCheckCircle className="mr-2 flex-shrink-0" />
                 {success}
               </div>
             )}
 
             {/* Full Name Input */}
-            <div className="mb-5">
-              <label className="block text-gray-400 text-sm mb-2" htmlFor="fullName">
+            <div className="mb-4">
+              <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1" htmlFor="fullName">
                 Full Name
               </label>
               <input
@@ -349,14 +336,14 @@ const UpdateProfilePage = () => {
                 id="fullName"
                 value={userData.fullName}
                 onChange={(e) => setUserData({ ...userData, fullName: e.target.value })}
-                className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none"
-                placeholder="Enter your full name"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:border-teal-400 focus:ring-1 focus:ring-teal-400 focus:outline-none transition"
+                placeholder="Your full name"
               />
             </div>
 
             {/* Phone Number Input */}
-            <div className="mb-5">
-              <label className="block text-gray-400 text-sm mb-2" htmlFor="phoneNumber">
+            <div className="mb-4">
+              <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1" htmlFor="phoneNumber">
                 Phone Number
               </label>
               <input
@@ -364,14 +351,14 @@ const UpdateProfilePage = () => {
                 id="phoneNumber"
                 value={userData.phoneNumber}
                 onChange={(e) => setUserData({ ...userData, phoneNumber: e.target.value })}
-                className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none"
-                placeholder="Enter your phone number"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:border-teal-400 focus:ring-1 focus:ring-teal-400 focus:outline-none transition"
+                placeholder="Your phone number"
               />
             </div>
 
             {/* Wallet Address Input */}
             <div className="mb-6">
-              <label className="block text-gray-400 text-sm mb-2" htmlFor="walletAddress">
+              <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1" htmlFor="walletAddress">
                 Withdrawal Address
               </label>
               <input
@@ -379,20 +366,29 @@ const UpdateProfilePage = () => {
                 id="walletAddress"
                 value={userData.walletAddress}
                 onChange={(e) => setUserData({ ...userData, walletAddress: e.target.value })}
-                className="w-full bg-black/30 border border-teal-400/30 rounded-xl p-4 text-white focus:border-teal-400 focus:outline-none"
-                placeholder="Enter your withdrawal address"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white focus:border-teal-400 focus:ring-1 focus:ring-teal-400 focus:outline-none transition"
+                placeholder="Your withdrawal address"
               />
+              <p className="text-gray-500 text-xs mt-1">This is where your earnings will be sent</p>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full bg-gradient-to-r from-teal-400 to-teal-500 text-white font-semibold py-4 px-6 rounded-xl hover:shadow-lg transition-all ${
-                isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-0.5'
-              }`}
+              className={`w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all ${
+                isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-teal-500/30 hover:-translate-y-0.5'
+              } flex items-center justify-center`}
             >
-              {isSubmitting ? 'Updating...' : 'Update Profile'}
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : 'Update Profile'}
             </button>
           </form>
         </div>
