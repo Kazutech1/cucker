@@ -265,175 +265,6 @@ export const deleteProduct = async (req, res) => {
 
 
 
-// export const getProductsForAssignment = async (req, res) => {
-//   try {
-//     const products = await prisma.product.findMany({
-//       where: { isActive: true },
-//       select: {
-//         id: true,
-//         name: true,
-//         defaultProfit: true,
-//         defaultDeposit: true
-//       },
-//       orderBy: { name: 'asc' }
-//     });
-    
-//     res.json(products);
-//   } catch (error) {
-//     console.error("Get products error:", error);
-//     res.status(500).json({ message: "Failed to get products" });
-//   }
-// };
-
-
-// export const assignTasksToUser = async (req, res) => {
-//   try {
-//     const { userId, productId, taskCount, totalProfit } = req.body;
-
-//     // Validate input
-//     if (!userId || !productId || !taskCount || !totalProfit) {
-//       return res.status(400).json({ message: "Missing required fields" });
-//     }
-
-//     const profitPerTask = totalProfit / taskCount;
-
-//     // Get user's current task number
-//     const user = await prisma.user.findUnique({
-//       where: { id: userId },
-//       select: { nextTaskNumber: true }
-//     });
-
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Create tasks transaction
-//     const tasks = await prisma.$transaction(
-//       Array(taskCount).fill().map((_, i) => {
-//         return prisma.userTask.create({
-//           data: {
-//             userId,
-//             productId,
-//             taskNumber: user.nextTaskNumber + i,
-//             baseProfit: profitPerTask,
-//             status: "assigned"
-//           }
-//         });
-//       })
-//     );
-
-//     // Update user's next task number
-//     await prisma.user.update({
-//       where: { id: userId },
-//       data: { nextTaskNumber: user.nextTaskNumber + taskCount }
-//     });
-
-//     res.json({
-//       message: `${taskCount} tasks assigned successfully`,
-//       tasks: tasks.map(t => ({
-//         id: t.id,
-//         taskNumber: t.taskNumber,
-//         profit: t.baseProfit
-//       }))
-//     });
-//   } catch (error) {
-//     console.error("Assign tasks error:", error);
-//     res.status(500).json({ message: "Failed to assign tasks" });
-//   }
-// };
-
-
-// export const createForcedTask = async (req, res) => {
-//   try {
-//     const { userId, productId, taskNumber, depositAmount, customProfit } = req.body;
-
-//     // Validate
-//     if (!userId || !productId || !taskNumber || depositAmount === undefined) {
-//       return res.status(400).json({ message: "Missing required fields" });
-//     }
-
-//     // Check if task number exists
-//     const existingTask = await prisma.userTask.findFirst({
-//       where: { userId, taskNumber }
-//     });
-
-//     if (existingTask) {
-//       return res.status(400).json({ message: "Task number already exists" });
-//     }
-
-//     const task = await prisma.userTask.create({
-//       data: {
-//         userId,
-//         productId,
-//         taskNumber,
-//         baseProfit: customProfit || undefined, // Use product default if null
-//         depositAmount,
-//         depositStatus: "pending",
-//         isForced: true,
-//         status: "assigned"
-//       }
-//     });
-
-//     res.json({
-//       message: "Forced task created successfully",
-//       task: {
-//         id: task.id,
-//         taskNumber: task.taskNumber,
-//         profit: task.baseProfit,
-//         depositAmount: task.depositAmount
-//       }
-//     });
-//   } catch (error) {
-//     console.error("Create forced task error:", error);
-//     res.status(500).json({ message: "Failed to create forced task" });
-//   }
-// };
-
-
-
-
-// export const getUserTasks = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const { status } = req.query;
-
-//     const tasks = await prisma.userTask.findMany({
-//       where: { 
-//         userId,
-//         ...(status && { status }) 
-//       },
-//       include: {
-//         product: {
-//           select: {
-//             name: true,
-//             image: true
-//           }
-//         }
-//       },
-//       orderBy: { taskNumber: 'asc' }
-//     });
-
-//     res.json(tasks.map(task => ({
-//       id: task.id,
-//       taskNumber: task.taskNumber,
-//       status: task.status,
-//       profit: task.baseProfit,
-//       depositAmount: task.depositAmount,
-//       depositStatus: task.depositStatus,
-//       isForced: task.isForced,
-//       product: task.product,
-//       createdAt: task.createdAt
-//     })));
-//   } catch (error) {
-//     console.error("Get user tasks error:", error);
-//     res.status(500).json({ message: "Failed to get user tasks" });
-//   }
-// };
-
-
-
-
-
 
 export const assignTasksToUser = async (req, res) => {
   try {
@@ -523,11 +354,15 @@ export const assignTasksToUser = async (req, res) => {
     }
 
     // Process in transaction to ensure atomic operation
-    const result = await prisma.$transaction(async (tx) => {
-      // FIRST: Delete ALL existing tasks for this user
-      console.log('[CLEANUP] Deleting all existing tasks for user');
-      await tx.userTask.deleteMany({
-        where: { userId }
+       const result = await prisma.$transaction(async (tx) => {
+      // FIRST: Mark existing tasks as inactive and track replacement
+      console.log('[HISTORY] Marking existing tasks as inactive');
+      await tx.userTask.updateMany({
+        where: { userId },
+        data: { 
+          isActive: false,
+          replacedById: taskData[0].id // Link to first new task
+        }
       });
 
       // THEN: Create all new tasks
@@ -1662,6 +1497,109 @@ export const getCurrentTask = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to get current task",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+
+
+// @desc    Get user's task history with filtering and pagination
+// @route   GET /api/users/task-history
+// @access  Private
+export const getTaskHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      page = 1, 
+      limit = 10,
+      includeInactive = 'true',
+      status, 
+      dateFrom, 
+      dateTo,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Validate pagination
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    if (isNaN(pageNumber) || isNaN(limitNumber) || pageNumber < 1 || limitNumber < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pagination parameters"
+      });
+    }
+
+    // Build where clause
+    const where = {
+      userId,
+      ...(includeInactive === 'false' ? { isActive: true } : {}),
+      ...(status && { status }),
+      ...(dateFrom && { createdAt: { gte: new Date(dateFrom) } }),
+      ...(dateTo && { createdAt: { lte: new Date(dateTo) } })
+    };
+
+    // Get total count
+    const total = await prisma.userTask.count({ where });
+
+    // Get paginated results
+    const tasks = await prisma.userTask.findMany({
+      where,
+      skip: (pageNumber - 1) * limitNumber,
+      take: limitNumber,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        },
+        replacedBy: {
+          select: {
+            id: true,
+            taskNumber: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: {
+        [sortBy]: sortOrder
+      }
+    });
+
+    // Format response
+    const formattedTasks = tasks.map(task => ({
+      id: task.id,
+      isActive: task.isActive,
+      status: task.status,
+      taskNumber: task.taskNumber,
+      profitAmount: task.profitAmount,
+      createdAt: task.createdAt,
+      completedAt: task.completedAt,
+      product: task.product,
+      replacedBy: task.replacedBy
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tasks: formattedTasks,
+        pagination: {
+          totalItems: total,
+          totalPages: Math.ceil(total / limitNumber),
+          currentPage: pageNumber,
+          itemsPerPage: limitNumber
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Task history error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch task history",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

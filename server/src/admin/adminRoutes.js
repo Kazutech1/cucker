@@ -25,6 +25,7 @@ import {
   deleteVipLevel,
   getAppSettings,
   updateAppSettings,
+  getAdminUserReferralInfo,
   // createTask,
   // getAllTasks,
   // updateTask,
@@ -208,6 +209,12 @@ router.put('/:taskId', editTask);
 router.delete('/:taskId', deleteTask);
 router.post('/deactivate-tasks',  deactivateUserTasks);
 router.get('/tasks',  getAllUsersTasks);
+
+
+
+
+// router.get('/referrals',  getAllReferralData);
+router.get('/referrals/:userId',  getAdminUserReferralInfo);
 
 
 export default router;

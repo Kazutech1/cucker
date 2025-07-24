@@ -2,7 +2,7 @@
 import express from 'express';
 // import { calculateDailyProfit, getDailyEarningsInfo } from '../controllers/earningsController.js'
 import { authenticateUser } from '../middlewares/auth.js';
-import { completeTask, declineTask, getCurrentTask, getUserTasks } from '../admin/adminController.js';
+import { completeTask, declineTask, getCurrentTask, getTaskHistory, getUserTasks } from '../admin/adminController.js';
 // import { completeTask, declineTask, getUserTasks } from '../admin/adminController.js';
 // import { completeTask, getUserTaskHistory, getUserTasks, userRejectPendingTask } from '../admin/taskController.js';
 // import { completeTask, getUserTaskHistory, getUserTasks, getUserTaskStats } from '../controllers/earningsController.js';
@@ -72,6 +72,8 @@ router.get('/',  getUserTasks);
 router.patch('/:taskId/complete',  completeTask);
 router.patch('/:taskId/decline', declineTask);
 router.get('/current-task', getCurrentTask) 
+router.get('/task-history', getTaskHistory) 
+
 
 
 

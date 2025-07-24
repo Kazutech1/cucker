@@ -167,19 +167,26 @@ enum UserTaskStatus {
 
 
 model UserTask {
-  id               String         @id @default(uuid())
-  user             User           @relation(fields: [userId], references: [id])
-  userId           String
-  product          Product        @relation(fields: [productId], references: [id])
-  productId        String
-  status           UserTaskStatus @default(assigned)
-  taskNumber       Int            // Per-user ordering
-  profitAmount     Float          // Final profit to award user (can be default or custom)
-  depositAmount    Float?         // Final deposit required for forced task (can be default or custom)
-  isForced         Boolean        @default(false)
-  depositStatus    String?        // 'pending', 'approved', 'rejected' – for forced tasks
-  isActive         Boolean        @default(true) // Soft delete
-  createdAt        DateTime       @default(now())
+  id            String         @id @default(uuid())
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String
+  product       Product        @relation(fields: [productId], references: [id])
+  productId     String
+  status        UserTaskStatus @default(assigned)
+  taskNumber    Int
+  profitAmount  Float
+  depositAmount Float?
+  isForced      Boolean        @default(false)
+  depositStatus String?
+  isActive      Boolean        @default(true)
+  version       Int            @default(1)
+
+  // Self-referencing relation for versioning
+  replacedById  String?
+  replacedBy    UserTask?      @relation("UserTaskReplacements", fields: [replacedById], references: [id])
+  replacedTasks UserTask[]     @relation("UserTaskReplacements") // the "back-reference" for replacedBy
+
+  createdAt     DateTime       @default(now())
 }
 
 

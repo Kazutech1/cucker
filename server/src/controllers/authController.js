@@ -77,14 +77,27 @@ export const register = async (req, res) => {
   const { email, fullName, username, phoneNumber, password, withdrawalPassword, referredBy } = req.body;
 
   try {
-    // Validate required fields (fullName is now optional)
-    if (!email || !username || !phoneNumber || !password || !withdrawalPassword) {
-      return res.status(400).json({ message: "Email, username, phone number, password, and withdrawal password are required" });
+    // Validate required fields (fullName is now optional, referredBy is now required)
+    if (!email || !username || !phoneNumber || !password || !withdrawalPassword || !referredBy) {
+      return res.status(400).json({ 
+        message: "Email, username, phone number, password, withdrawal password, and referral code are required" 
+      });
     }
 
     // Validate phone number format
     if (!validatePhoneNumber(phoneNumber)) {
       return res.status(400).json({ message: "Invalid phone number format" });
+    }
+
+    // Check if referral code exists in the system
+    const referringUser = await prisma.user.findFirst({
+      where: {
+        referralCode: referredBy
+      }
+    });
+
+    if (!referringUser) {
+      return res.status(400).json({ message: "Invalid referral code" });
     }
 
     // Check if user already exists
@@ -135,7 +148,7 @@ export const register = async (req, res) => {
           password: hashedPassword,
           withdrawalPassword, // Stored as plain text (not hashed)
           referralCode,
-          referredBy: referredBy || null
+          referredBy
         }
       });
 
@@ -402,3 +415,148 @@ export const getNotifications = async (req, res) => {
     })
   }
 }
+
+
+
+
+// controllers/referralController.js
+
+// Get user's referral information
+export const getUserReferralInfo = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user's referral code and basic stats
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        referralCode: true,
+        referredBy: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Count total referrals
+    const totalReferrals = await prisma.user.count({
+      where: { referredBy: user.referralCode }
+    });
+
+    // Count active referrals (users who have deposited or completed tasks)
+    const activeReferrals = await prisma.user.count({
+      where: { 
+        referredBy: user.referralCode,
+        OR: [
+          { deposits: { some: { status: "verified" } } },
+          { userTasks: { some: { status: "completed" } } }
+        ]
+      }
+    });
+
+    // Calculate total earned from referrals
+    const referralBonuses = await prisma.earningsHistory.aggregate({
+      where: { 
+        userId,
+        type: "referral"
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        referralCode: user.referralCode,
+        referredBy: user.referredBy,
+        totalReferrals,
+        activeReferrals,
+        totalEarned: referralBonuses._sum.amount || 0,
+        // referralLink: `${process.env.FRONTEND_URL}/signup?ref=${user.referralCode}`
+      }
+    });
+
+  } catch (error) {
+    console.error("Get referral info error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
+  }
+};
+
+// Get list of users referred by the current user
+export const getReferredUsers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Get user's referral code
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { referralCode: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get referred users with some basic info
+    const referredUsers = await prisma.user.findMany({
+      where: { referredBy: user.referralCode },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        phoneNumber: true,
+        balance: true,
+        createdAt: true,
+        deposits: {
+          where: { status: "verified" },
+          select: { amount: true },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        },
+        userTasks: {
+          where: { status: "completed" },
+          select: { profitAmount: true },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: parseInt(limit)
+    });
+
+    // Count total referred users for pagination
+    const total = await prisma.user.count({
+      where: { referredBy: user.referralCode }
+    });
+
+    res.json({
+      success: true,
+      data: referredUsers.map(user => ({
+        ...user,
+        lastDeposit: user.deposits[0]?.amount || 0,
+        lastTaskProfit: user.userTasks[0]?.profitAmount || 0
+      })),
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error("Get referred users error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
+  }
+};
