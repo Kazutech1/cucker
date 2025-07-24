@@ -11,7 +11,7 @@ import {
   FiCopy
 } from 'react-icons/fi';
 import useWithdrawal from '../../hooks/useWithdrawals';
-import Toast from '../components/Toast';
+// import Toast from '../components/Toast';
 
 
 const WithdrawPage = () => {
@@ -290,14 +290,7 @@ const WithdrawPage = () => {
           </div>
         )}
 
-        {/* Toast Notification */}
-        {toast.show && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast({...toast, show: false})} 
-          />
-        )}
+        
       </div>
     </div>
   );
