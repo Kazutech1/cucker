@@ -6,7 +6,6 @@ import {
   Layers, PauseCircle, RotateCcw, X, Save, Plus, Minus, Users, RefreshCw
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Toast from '../../components/Toast';
 import useUserAdmin from '../../../hooks/useAdminUsers';
 import UserTasks from './UserTasks';
 import useAdminReferralInfo from '../../../hooks/useAdminReferrals';
@@ -47,6 +46,8 @@ const UserManagement = () => {
     const fetchUser = async () => {
       try {
         const userData = await getUserById(userId);
+        console.log(userData);
+        
         setUser(userData);
         setEditForm({
           email: userData.email,
@@ -485,7 +486,7 @@ const UserManagement = () => {
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-gray-500 text-sm">Task Limit</p>
-              <p className="font-medium">{user.taskLimit}</p>
+              <p className="font-medium">{user.profile.vipLevelData.appsPerSet}</p>
             </div>
           </div>
 
@@ -915,13 +916,13 @@ const UserManagement = () => {
         )}
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast 
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
         
       </div>
     </div>

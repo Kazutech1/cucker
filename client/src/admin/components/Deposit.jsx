@@ -11,7 +11,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import useDepositAdmin from '../../../hooks/useAdminDeposit';
-import Toast from '../../components/Toast';
+// import Toast from '../../components/Toast';
 
 const Deposit = () => {
   const {
@@ -317,13 +317,13 @@ const Deposit = () => {
         )}
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast 
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
       </div>
 
       <style jsx>{`

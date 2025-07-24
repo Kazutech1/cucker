@@ -14,7 +14,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import useWithdrawalAdmin from '../../../hooks/useAdminWithdrawals';
-import Toast from '../../components/Toast';
+// import Toast from '../../components/Toast';
 
 const Withdrawals = () => {
   const {
@@ -318,13 +318,13 @@ const Withdrawals = () => {
         )}
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
       </div>
 
       <style jsx>{`

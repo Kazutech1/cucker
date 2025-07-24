@@ -15,7 +15,7 @@ import {
   Star
 } from 'lucide-react';
 import useVipAdmin from '../../../hooks/UseAdminVip';
-import Toast from '../../components/Toast';
+// import Toast from '../../components/Toast';
 
 const VipManagement = () => {
   const {
@@ -514,13 +514,13 @@ const VipManagement = () => {
         )}
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast 
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
       </div>
 
       <style jsx>{`

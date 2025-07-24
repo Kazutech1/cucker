@@ -11,7 +11,6 @@ import {
   Shield,
   Star
 } from 'lucide-react';
-import Toast from '../../components/Toast';
 import { Link } from 'react-router-dom';
 import useUserAdmin from '../../../hooks/useAdminUsers';
 
@@ -272,13 +271,13 @@ const UsersList = () => {
         )}
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast 
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
       </div>
 
       <style jsx>{`

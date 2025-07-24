@@ -13,7 +13,7 @@ import {
   ChevronDown,
   Loader2
 } from 'lucide-react';
-import Toast from '../../components/Toast';
+// import Toast from '../../components/Toast';
 import useProductAdmin from '../../../hooks/useAdminProducts';
 
 const Products = () => {
@@ -604,12 +604,12 @@ const Products = () => {
         /> */}
 
         {/* Toast Notification */}
-        <Toast
+        {/* <Toast
           show={toast.show}
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        />
+        /> */}
       </div>
     </div>
   );
