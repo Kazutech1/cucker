@@ -138,7 +138,7 @@ const handleUpgrade = () => {
         {/* Level Cards Container */}
         {vipLevels.length > 0 && (
           <div 
-            className="relative h-96 w-75 perspective-1000 overflow-visible mb-8 ml-5"
+            className="relative h-96 w-65 perspective-1000 overflow-visible mb-8 ml-5"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
