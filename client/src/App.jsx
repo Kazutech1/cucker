@@ -27,6 +27,7 @@ import AUsers from './admin/components/TasksManagement';
 import AdminDashboard from './admin/components/AdminDashboard';
 import adminRoutes from './admin/components/adminRoutes';
 import ReferralPage from './pages/Referrals';
+import CustomerService from './pages/CustomerService';
 
 function App() {
   return (
@@ -40,6 +41,8 @@ function App() {
         <Route path="/withdraw" element={<WithdrawPage />} />
         <Route path="/transactions" element={<TransactionHistory />} />
                 <Route path="/referrals" element={<ReferralPage />} />
+                        <Route path="/support" element={<CustomerService />} />
+
 
         <Route path="/deposit" element={<DepositPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
