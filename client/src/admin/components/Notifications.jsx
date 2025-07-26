@@ -257,9 +257,9 @@ const Notifications = () => {
                     <span className="ml-2">{selectedNotification.title}</span>
                   </h3>
                      <button
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => setShowModal(false)}
                     className="text-gray-500 hover:text-gray-700"
-                    disabled={isCreating} // Disable close while creating
+                    // disabled={isCreating} // Disable close while creating
                   >
                     ✕
                   </button>

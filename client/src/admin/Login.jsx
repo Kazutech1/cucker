@@ -1,20 +1,22 @@
+// AdminLogin.jsx (updated)
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
 const AdminLogin = () => {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { login: authLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     setIsSubmitted(true);
     setErrorMessage('');
 
-    // Basic validation
     if (!login.trim()) {
       setErrorMessage('Please enter your email, username, or phone');
       return;
@@ -25,46 +27,17 @@ const AdminLogin = () => {
       return;
     }
 
-    setIsLoading(true);
+    const result = await authLogin({
+      login: login.trim(),
+      password
+    });
 
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          login: login.trim(), 
-          password: password 
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle specific error cases
-        if (response.status === 400) {
-          throw new Error(data.message || 'Invalid request format');
-        } else if (response.status === 401) {
-          throw new Error(data.message || 'Invalid credentials. Please try again.');
-        } else if (response.status === 403) {
-          throw new Error(data.message || 'Access denied. Contact support.');
-        } else {
-          throw new Error(data.message || 'Login failed. Please try again later.');
-        }
-      }
-
-      // Store token and user data
-      localStorage.setItem('admin_token', data.token);
-      localStorage.setItem('admin_user', JSON.stringify(data.user));
-      
-      // Redirect to dashboard with success state
-      navigate('/admin/dashboard', { state: { loginSuccess: true } });
-    } catch (error) {
-      console.error('Admin login error:', error);
-      setErrorMessage(error.message || 'An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
+    if (result.success) {
+      // Redirect to intended page or dashboard
+      const from = location.state?.from?.pathname || '/admin/dashboard';
+      navigate(from, { state: { loginSuccess: true } });
+    } else {
+      setErrorMessage(result.error || 'Login failed. Please try again.');
     }
   };
 

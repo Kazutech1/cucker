@@ -110,6 +110,19 @@ const SettingsPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
               />
             </div>
+             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <Gift className="mr-2" size={16} />
+                Total Signup Bonus
+              </label>
+              <input
+                type="number"
+                name="totalSignupBonus"
+                value={settings.totalSignupBonus}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                 <DollarSign className="mr-2" size={16} />
@@ -137,28 +150,11 @@ const SettingsPage = () => {
                 placeholder="0x..."
               />
             </div>
-          </div>
-        </div>
+        
 
         {/* Update Section */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-bold text-gray-800">Update</h3>
-          </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <Gift className="mr-2" size={16} />
-                Total Signup Bonus
-              </label>
-              <input
-                type="number"
-                name="totalSignupBonus"
-                value={settings.totalSignupBonus}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
-              />
-            </div>
+    
+           
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                 <Bitcoin className="mr-2" size={16} />
