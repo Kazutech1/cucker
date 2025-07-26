@@ -30,37 +30,33 @@ const useTaskManagement = () => {
    * @returns {Promise<{data: Array, stats: object}>}
    */
   const assignTasksToUser = async ({
-    userId,
-    taskCount,
-    totalProfit,
-    forcedNumber,
-    depositAmount,
-    customProfit
-  }) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await api.post('/api/admin/assign', {
-        userId,
-        taskCount,
-        totalProfit,
-        ...(forcedNumber !== undefined && { forcedNumber }),
-        ...(depositAmount !== undefined && { depositAmount }),
-        ...(customProfit !== undefined && { customProfit })
-      });
-      
-      return {
-        data: response.data.data,
-        stats: response.data.stats
-      };
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to assign tasks');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+  userId,
+  taskCount,
+  totalProfit,
+  forcedTasks // Now accepting an array of forced tasks
+}) => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const response = await api.post('/api/admin/assign', {
+      userId,
+      taskCount,
+      totalProfit,
+      ...(forcedTasks && forcedTasks.length > 0 && { forcedTasks }) // Only include if array exists and has items
+    });
+    
+    return {
+      data: response.data.data,
+      stats: response.data.stats
+    };
+  } catch (err) {
+    setError(err.response?.data?.message || 'Failed to assign tasks');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   /**
    * Edit an existing task

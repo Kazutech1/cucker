@@ -27,7 +27,7 @@ import {
   Search
 } from 'lucide-react';
 import dayjs from 'dayjs';
-import useTaskManagement from '../../../hooks/useAdminTasks'; 
+import useTaskManagement from '../../../hooks/useAdminTasks';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -67,6 +67,12 @@ const UserTasks = ({ userId }) => {
   });
   const [isComboTask, setIsComboTask] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [forcedTasks, setForcedTasks] = useState([]);
+  const [currentForcedTask, setCurrentForcedTask] = useState({
+    taskNumber: undefined,
+    depositAmount: undefined,
+    customProfit: undefined
+  });
 
   const [assignForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -147,14 +153,13 @@ const UserTasks = ({ userId }) => {
         userId,
         taskCount: values.taskCount,
         totalProfit: values.totalProfit,
-        forcedNumber: values.comboNumber,
-        depositAmount: values.depositAmount,
-        customProfit: values.customProfit
+        forcedTasks: forcedTasks.length > 0 ? forcedTasks : undefined
       });
 
       message.success('Tasks assigned successfully!');
       setAssignModalVisible(false);
       assignForm.resetFields();
+      setForcedTasks([]);
       await fetchTasks();
     } catch (err) {
       message.error(err.message || 'Failed to assign tasks');
@@ -295,34 +300,33 @@ const UserTasks = ({ userId }) => {
       sorter: true
     },
     {
-  title: 'Actions',
-  key: 'actions',
-  fixed: 'right',
-  width: 120,
-  render: (_, record) => (
-    <Space size="small">
-      {record.status !== 'completed' && (
-        <Button
-          icon={<Edit2 size={16} />}
-          onClick={() => handleEditClick(record)}
-          disabled={actionLoading}
-        />
-      )}
-      <Popconfirm
-        title="Are you sure to delete this task?"
-        onConfirm={() => handleDeleteTask(record._id)}
-        okText="Yes"
-        cancelText="No"
-        disabled={actionLoading}
-      >
-        <Button 
-          icon={<Trash2 size={16} />} 
-          danger 
-          disabled={actionLoading}
-        />
-      </Popconfirm>
-    </Space>
-  
+      title: 'Actions',
+      key: 'actions',
+      fixed: 'right',
+      width: 120,
+      render: (_, record) => (
+        <Space size="small">
+          {record.status !== 'completed' && (
+            <Button
+              icon={<Edit2 size={16} />}
+              onClick={() => handleEditClick(record)}
+              disabled={actionLoading}
+            />
+          )}
+          <Popconfirm
+            title="Are you sure to delete this task?"
+            onConfirm={() => handleDeleteTask(record._id)}
+            okText="Yes"
+            cancelText="No"
+            disabled={actionLoading}
+          >
+            <Button 
+              icon={<Trash2 size={16} />} 
+              danger 
+              disabled={actionLoading}
+            />
+          </Popconfirm>
+        </Space>
       )
     }
   ];
@@ -458,43 +462,154 @@ const UserTasks = ({ userId }) => {
           onCancel={() => {
             setAssignModalVisible(false);
             assignForm.resetFields();
+            setForcedTasks([]);
+            setCurrentForcedTask({
+              taskNumber: undefined,
+              depositAmount: undefined,
+              customProfit: undefined
+            });
           }}
           confirmLoading={actionLoading}
           destroyOnClose
+          width={800}
         >
           <Form form={assignForm} layout="vertical">
-            <Form.Item
-              name="taskCount"
-              label="Number of Tasks"
-              rules={[{ required: true, message: 'Please input the number of tasks' }]}
-            >
-              <InputNumber min={1} style={{ width: '100%' }} disabled={actionLoading} />
-            </Form.Item>
-            <Form.Item
-              name="totalProfit"
-              label="Total Profit"
-              rules={[{ required: true, message: 'Please input the total profit' }]}
-            >
-              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
-            </Form.Item>
-            <Form.Item
-              name="comboNumber"
-              label="Combo Task Number (optional)"
-            >
-              <InputNumber min={1} style={{ width: '100%' }} disabled={actionLoading} />
-            </Form.Item>
-            <Form.Item
-              name="depositAmount"
-              label="Deposit Amount (optional)"
-            >
-              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
-            </Form.Item>
-            <Form.Item
-              name="customProfit"
-              label="Custom Profit (optional)"
-            >
-              <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
-            </Form.Item>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="taskCount"
+                  label="Number of Tasks"
+                  rules={[{ required: true, message: 'Please input the number of tasks' }]}
+                >
+                  <InputNumber min={1} style={{ width: '100%' }} disabled={actionLoading} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="totalProfit"
+                  label="Total Profit"
+                  rules={[{ required: true, message: 'Please input the total profit' }]}
+                >
+                  <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={actionLoading} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Divider orientation="left">Combo Tasks (Optional)</Divider>
+            
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item label="Task Number">
+                  <InputNumber 
+                    min={1} 
+                    style={{ width: '100%' }} 
+                    value={currentForcedTask.taskNumber}
+                    onChange={(value) => setCurrentForcedTask(prev => ({
+                      ...prev,
+                      taskNumber: value
+                    }))}
+                    disabled={actionLoading}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="Deposit Amount">
+                  <InputNumber 
+                    min={0} 
+                    step={0.01} 
+                    style={{ width: '100%' }} 
+                    value={currentForcedTask.depositAmount}
+                    onChange={(value) => setCurrentForcedTask(prev => ({
+                      ...prev,
+                      depositAmount: value
+                    }))}
+                    disabled={actionLoading}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="Custom Profit">
+                  <InputNumber 
+                    min={0} 
+                    step={0.01} 
+                    style={{ width: '100%' }} 
+                    value={currentForcedTask.customProfit}
+                    onChange={(value) => setCurrentForcedTask(prev => ({
+                      ...prev,
+                      customProfit: value
+                    }))}
+                    disabled={actionLoading}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <div style={{ marginBottom: 16, textAlign: 'right' }}>
+              <Button
+                type="dashed"
+                icon={<Plus />}
+                onClick={() => {
+                  if (currentForcedTask.taskNumber && 
+                      currentForcedTask.depositAmount !== undefined && 
+                      currentForcedTask.customProfit !== undefined) {
+                    setForcedTasks([...forcedTasks, currentForcedTask]);
+                    setCurrentForcedTask({
+                      taskNumber: undefined,
+                      depositAmount: undefined,
+                      customProfit: undefined
+                    });
+                  } else {
+                    message.warning('Please fill all fields for the Combo task');
+                  }
+                }}
+                disabled={actionLoading}
+              >
+                Add Combo Task
+              </Button>
+            </div>
+
+            {forcedTasks.length > 0 && (
+              <Table
+                dataSource={forcedTasks}
+                rowKey={(record) => record.taskNumber}
+                pagination={false}
+                size="small"
+                columns={[
+                  {
+                    title: 'Task #',
+                    dataIndex: 'taskNumber',
+                    key: 'taskNumber'
+                  },
+                  {
+                    title: 'Deposit Amount',
+                    dataIndex: 'depositAmount',
+                    key: 'depositAmount',
+                    render: (value) => `$${value?.toFixed(2)}`
+                  },
+                  {
+                    title: 'Custom Profit',
+                    dataIndex: 'customProfit',
+                    key: 'customProfit',
+                    render: (value) => `$${value?.toFixed(2)}`
+                  },
+                  {
+                    title: 'Action',
+                    key: 'action',
+                    render: (_, record) => (
+                      <Button
+                        danger
+                        size="small"
+                        icon={<Trash2 size={14} />}
+                        onClick={() => {
+                          setForcedTasks(forcedTasks.filter(task => task.taskNumber !== record.taskNumber));
+                        }}
+                        disabled={actionLoading}
+                      />
+                    )
+                  }
+                ]}
+              />
+            )}
           </Form>
         </Modal>
 
