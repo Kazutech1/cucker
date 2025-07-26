@@ -238,9 +238,7 @@ const Dashboard = () => {
     navigate('/vip');
   };
 
-  const contactSupport = () => {
-    window.open('https://t.me/support', '_blank');
-  };
+  
 
   useEffect(() => {
     fetchAllData();
@@ -275,12 +273,15 @@ const Dashboard = () => {
         </p>
         
         <div className="flex flex-col gap-3">
-          <button
-            onClick={contactSupport}
+          <Link to='support'>
+            <button
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-blue-600 hover:to-purple-700 transition-all"
           >
             <FaHeadset /> CONTACT SUPPORT
           </button>
+          
+          </Link>
+        
           
           <button
             onClick={() => {
