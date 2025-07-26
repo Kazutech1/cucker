@@ -1,55 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { FiX, FiSend, FiMessageCircle } from 'react-icons/fi';
 
-const CustomerService = ({ onClose }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const modalRef = useRef(null);
-
-  // Handle animation on mount
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
-
-  // Handle click outside to close
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        handleClose();
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Match this with the transition duration
-  };
+const SupportModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
 
   return (
-    <div 
-      className={`fixed inset-0 z-50 flex items-end justify-center transition-opacity duration-300 ${
-        isVisible ? 'opacity-100' : 'opacity-0'
-      }`}
-    >
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-      
-      {/* Modal Container */}
-      <div
-        ref={modalRef}
-        className={`relative w-full max-w-md bg-gray-900 rounded-t-2xl border-t border-teal-400/20 shadow-xl transform transition-transform duration-300 ease-out ${
-          isVisible ? 'translate-y-0' : 'translate-y-full'
-        }`}
-      >
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
+      <div className={`relative w-full max-w-md bg-gray-900 rounded-t-2xl border-t border-teal-400/20 shadow-xl transform transition-transform duration-300`}>
         {/* Drag Handle */}
         <div className="pt-3 flex justify-center">
           <div className="h-1 w-10 bg-gray-600 rounded-full"></div>
@@ -59,8 +16,8 @@ const CustomerService = ({ onClose }) => {
         <div className="px-4 pt-2 pb-4 flex justify-between items-center">
           <h2 className="text-lg font-bold text-white">Contact Support</h2>
           <button 
-            onClick={handleClose}
-            className="p-2 text-gray-400 hover:text-white rounded-full transition-colors"
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white rounded-full"
           >
             <FiX size={20} />
           </button>
@@ -75,7 +32,7 @@ const CustomerService = ({ onClose }) => {
           <div className="space-y-3">
             {/* Telegram 1 */}
             <a
-              href="https://t.me/CS3_SiemensX"
+              href="https://t.me/CS1_SiemensX"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -94,7 +51,7 @@ const CustomerService = ({ onClose }) => {
             
             {/* Telegram 2 */}
             <a
-              href="https://t.me/CS1_SiemensX"
+              href="https://t.me/CS3_SiemensX"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -160,4 +117,4 @@ const CustomerService = ({ onClose }) => {
   );
 };
 
-export default CustomerService;
+export default SupportModal;

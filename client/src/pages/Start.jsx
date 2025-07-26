@@ -12,6 +12,7 @@ import BottomNav from '../components/BottomNav';
 import useTaskManagement from '../../hooks/useStart';
 import DepositTaskPopup, { NormalTaskPopup } from '../components/Toast';
 import TaskHistoryModal from '../components/TakHistoryModal';
+import SupportModal from './CustomerService';
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -36,6 +37,8 @@ const Dashboard = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const navigate = useNavigate();
+  const [showSupportModal, setShowSupportModal] = useState(false);
+
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -273,14 +276,12 @@ const Dashboard = () => {
         </p>
         
         <div className="flex flex-col gap-3">
-          <Link to='support'>
-            <button
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-extrabold flex items-center justify-center gap-2 hover:from-blue-600 hover:to-purple-700 transition-all"
-          >
-            <FaHeadset /> CONTACT SUPPORT
-          </button>
-          
-          </Link>
+                <button
+        onClick={() => setShowSupportModal(true)}
+        className="flex-1 py-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition"
+      >
+        Contact Support
+      </button>
         
           
           <button
@@ -511,6 +512,13 @@ const Dashboard = () => {
         </div>
       </div>
 
+        <SupportModal
+        isOpen={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
+      />
+
+      
+
       {/* Modals */}
       {showDepositPopup && currentTask && (
         <DepositTaskPopup 
@@ -541,6 +549,10 @@ const Dashboard = () => {
       {showUpgradeVipModal && (
         <UpgradeVipModal />
       )}
+
+      
+
+      
 
       <BottomNav />
     </div>

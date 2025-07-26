@@ -165,15 +165,16 @@ const ProfilePage = () => {
               >
                 Maybe Later
               </button>
-              <button
-                onClick={() => {
-                  setShowUpgradePopup(false);
-                  navigate('/support');
-                }}
-                className="flex-1 py-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition"
-              >
-                Upgrade Now
-              </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault(); // Prevent default button behavior
+                    setShowUpgradePopup(false);
+                    setShowSupportModal(true);
+                  }}
+                  className="flex-1 py-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition"
+                >
+                  Upgrade Now
+                </button>
             </div>
           </div>
         </div>
@@ -208,7 +209,7 @@ const ProfilePage = () => {
               <div className="space-y-3">
                 {/* Telegram 1 */}
                 <a
-                  href="https://t.me/support1"
+                  href="https://t.me/CS1_SiemensX"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -227,7 +228,7 @@ const ProfilePage = () => {
                 
                 {/* Telegram 2 */}
                 <a
-                  href="https://t.me/support2"
+                  href="https://t.me/CS3_SiemensX"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -246,7 +247,7 @@ const ProfilePage = () => {
                 
                 {/* WhatsApp 1 */}
                 <a
-                  href="https://wa.me/12345678901"
+                  href="https://wa.me/17866033764"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -257,7 +258,7 @@ const ProfilePage = () => {
                     </div>
                     <div>
                       <p className="font-medium text-white">WhatsApp Support 1</p>
-                      <p className="text-xs text-gray-400">+1 234 567 8901</p>
+                      <p className="text-xs text-gray-400">+1 786 603 3764</p>
                     </div>
                   </div>
                   <span className="text-green-400 text-xs bg-green-900/20 px-2 py-1 rounded">24/7</span>
@@ -265,7 +266,7 @@ const ProfilePage = () => {
                 
                 {/* WhatsApp 2 */}
                 <a
-                  href="https://wa.me/12345678902"
+                  href="https://wa.me/18322381774"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between bg-gray-800 hover:bg-gray-700 rounded-lg p-3 transition-colors active:bg-gray-700"
@@ -276,7 +277,7 @@ const ProfilePage = () => {
                     </div>
                     <div>
                       <p className="font-medium text-white">WhatsApp Support 2</p>
-                      <p className="text-xs text-gray-400">+1 234 567 8902</p>
+                      <p className="text-xs text-gray-400">+1 832 238 1774</p>
                     </div>
                   </div>
                   <span className="text-green-400 text-xs bg-green-900/20 px-2 py-1 rounded">24/7</span>

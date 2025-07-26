@@ -5,6 +5,7 @@ import Navbar from '../components/NavBar';
 import Sidebar from '../components/SideBar';
 import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/Spinner';
+import SupportModal from './CustomerService';
 
 const VIPLevelsPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -20,6 +21,8 @@ const VIPLevelsPage = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+    const [showSupportModal, setShowSupportModal] = useState(false);
+  
 
   // Fetch VIP levels and user's level from API
   useEffect(() => {
@@ -99,7 +102,7 @@ const VIPLevelsPage = () => {
   };
 
 const handleUpgrade = () => {
-  navigate('/support');
+      setShowSupportModal(true)
 };
 
   // Get color gradient based on level
@@ -220,6 +223,10 @@ const handleUpgrade = () => {
           </div>
         )}
       </div>
+        <SupportModal
+        isOpen={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
+      />
 
       {/* Bottom Navigation */}
       <BottomNav />
