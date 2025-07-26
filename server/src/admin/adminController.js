@@ -269,12 +269,10 @@ export const deleteProduct = async (req, res) => {
 export const assignTasksToUser = async (req, res) => {
   try {
     console.log('[TASK ASSIGNMENT] Starting complete override assignment');
-    const { userId, taskCount, totalProfit, forcedNumber, depositAmount, customProfit } = req.body;
+    const { userId, taskCount, totalProfit, forcedTasks } = req.body;
 
-    // Validate input (same as before)
     console.log('[VALIDATION] Validating input');
     if (!userId || !taskCount || !totalProfit) {
-      console.warn('[VALIDATION FAILED] Missing required fields');
       return res.status(400).json({
         success: false,
         message: "userId, taskCount and totalProfit are required"
@@ -283,17 +281,44 @@ export const assignTasksToUser = async (req, res) => {
 
     const numericTaskCount = parseInt(taskCount);
     const numericTotalProfit = parseFloat(totalProfit);
-    const numericForcedNumber = forcedNumber ? parseInt(forcedNumber) : undefined;
 
     if (isNaN(numericTaskCount) || numericTaskCount < 1) {
-      console.warn('[VALIDATION FAILED] Invalid taskCount');
       return res.status(400).json({
         success: false,
         message: "taskCount must be a positive number"
       });
     }
 
-    // Verify user exists (same as before)
+    if (forcedTasks && !Array.isArray(forcedTasks)) {
+      return res.status(400).json({
+        success: false,
+        message: "forcedTasks must be an array"
+      });
+    }
+
+    // Validate each forced task entry
+    if (forcedTasks) {
+      for (const task of forcedTasks) {
+        if (
+          typeof task.taskNumber !== 'number' ||
+          typeof task.depositAmount !== 'number' ||
+          typeof task.customProfit !== 'number'
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Each forcedTask must include taskNumber, depositAmount, and customProfit as numbers"
+          });
+        }
+
+        if (task.taskNumber < 1 || task.taskNumber > numericTaskCount) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid taskNumber in forcedTasks: ${task.taskNumber}`
+          });
+        }
+      }
+    }
+
     console.log(`[USER] Fetching user ${userId}`);
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -301,22 +326,13 @@ export const assignTasksToUser = async (req, res) => {
     });
 
     if (!user) {
-      console.warn('[USER] User not found');
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     if (user.isBlocked) {
-      console.warn('[USER] User is blocked');
-      return res.status(400).json({
-        success: false,
-        message: "User is blocked"
-      });
+      return res.status(400).json({ success: false, message: "User is blocked" });
     }
 
-    // Get active products (same as before)
     console.log('[PRODUCTS] Fetching active products');
     const activeProducts = await prisma.product.findMany({
       where: { isActive: true },
@@ -324,54 +340,47 @@ export const assignTasksToUser = async (req, res) => {
     });
 
     if (activeProducts.length === 0) {
-      console.error('[PRODUCTS] No active products');
-      return res.status(400).json({
-        success: false,
-        message: "No active products available"
-      });
+      return res.status(400).json({ success: false, message: "No active products available" });
     }
 
-    // Calculate base profit (same as before)
     const baseProfitPerTask = numericTotalProfit / numericTaskCount;
     console.log(`[PROFIT] Base profit per task: ${baseProfitPerTask}`);
 
-    // Prepare all task data (same as before)
     const taskData = [];
+
     for (let i = 0; i < numericTaskCount; i++) {
       const taskNumber = i + 1;
-      const isForced = numericForcedNumber === taskNumber;
-      
+
+      const forcedTask = forcedTasks?.find(t => t.taskNumber === taskNumber);
+      const isForced = !!forcedTask;
+
       taskData.push({
         userId,
         productId: activeProducts[Math.floor(Math.random() * activeProducts.length)].id,
         taskNumber,
         status: "assigned",
-        profitAmount: isForced ? (parseFloat(customProfit) || baseProfitPerTask) : baseProfitPerTask,
+        profitAmount: isForced ? forcedTask.customProfit : baseProfitPerTask,
         isForced,
-        depositAmount: isForced ? parseFloat(depositAmount) : null,
+        depositAmount: isForced ? forcedTask.depositAmount : null,
         depositStatus: isForced ? "pending" : null
       });
     }
 
-    // Process in transaction to ensure atomic operation
-       const result = await prisma.$transaction(async (tx) => {
-      // FIRST: Mark existing tasks as inactive and track replacement
+    const result = await prisma.$transaction(async (tx) => {
       console.log('[HISTORY] Marking existing tasks as inactive');
       await tx.userTask.updateMany({
         where: { userId },
-        data: { 
+        data: {
           isActive: false,
-          replacedById: taskData[0].id // Link to first new task
+          replacedById: taskData[0].id
         }
       });
 
-      // THEN: Create all new tasks
       console.log('[CREATION] Creating new tasks');
       const createdTasks = await Promise.all(
         taskData.map(task => tx.userTask.create({ data: task }))
       );
 
-      // FINALLY: Update user's next task number
       console.log('[UPDATE] Updating user task counter');
       await tx.user.update({
         where: { id: userId },
@@ -380,15 +389,13 @@ export const assignTasksToUser = async (req, res) => {
 
       return createdTasks;
     }, {
-      timeout: 30000, // Increased timeout for larger operations
+      timeout: 30000,
       maxWait: 30000
     });
 
-    // Calculate statistics
-    const actualForcedTasks = numericForcedNumber ? 1 : 0;
+    const actualForcedTasks = forcedTasks?.length || 0;
     const actualTotalProfit = result.reduce((sum, task) => sum + task.profitAmount, 0);
 
-    console.log('[SUCCESS] Complete task override completed');
     return res.status(201).json({
       success: true,
       message: `${result.length} tasks assigned (complete override)`,
