@@ -87,12 +87,7 @@ const TermsAndConditions = () => {
           </p>
         </div>
       </div>
-       <button
-                               onClick={addBonus}
-                              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-150 flex items-center"
-                            >
-                                <FaCoins className="mr-2" /> Add $10 Bonus
-                            </button>
+     
     </div>
   );
 };

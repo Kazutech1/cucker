@@ -21,8 +21,7 @@ const VIPLevelsPage = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-    const [showSupportModal, setShowSupportModal] = useState(false);
-  
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Fetch VIP levels and user's level from API
   useEffect(() => {
@@ -75,6 +74,7 @@ const VIPLevelsPage = () => {
     setCurrentLevel(level);
   };
 
+  // Touch event handlers (mobile)
   const handleTouchStart = (e) => {
     setStartX(e.touches[0].clientX);
     setIsDragging(true);
@@ -101,9 +101,53 @@ const VIPLevelsPage = () => {
     }
   };
 
-const handleUpgrade = () => {
-      setShowSupportModal(true)
-};
+  // Mouse event handlers (PC)
+  const handleMouseDown = (e) => {
+    e.preventDefault(); // Prevent text selection
+    setStartX(e.clientX);
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    setCurrentX(e.clientX);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    
+    const diffX = startX - currentX;
+    const threshold = 50;
+    
+    if (Math.abs(diffX) > threshold) {
+      if (diffX > 0 && currentLevel < vipLevels.length - 1) {
+        updateLevel(currentLevel + 1);
+      } else if (diffX < 0 && currentLevel > 0) {
+        updateLevel(currentLevel - 1);
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false);
+    }
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowLeft' && currentLevel > 0) {
+      updateLevel(currentLevel - 1);
+    } else if (e.key === 'ArrowRight' && currentLevel < vipLevels.length - 1) {
+      updateLevel(currentLevel + 1);
+    }
+  };
+
+  const handleUpgrade = () => {
+    setShowSupportModal(true);
+  };
 
   // Get color gradient based on level
   const getLevelColor = (level) => {
@@ -131,20 +175,30 @@ const handleUpgrade = () => {
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-24 max-w-md">
+      <div className="container mx-auto px-2 sm:px-4 py-20 sm:py-24 max-w-md">
         {/* Page Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-teal-400 mb-2">VIP Levels</h1>
-          <p className="text-gray-400">Unlock exclusive benefits as you level up</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-teal-400 mb-2">VIP Levels</h1>
+          <p className="text-gray-400 text-sm sm:text-base">Unlock exclusive benefits as you level up</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-2">Swipe or drag to navigate • Use arrow keys</p>
         </div>
 
         {/* Level Cards Container */}
         {vipLevels.length > 0 && (
           <div 
-            className="relative h-96 w-65 perspective-1000 overflow-visible mb-8 ml-5"
+            className="relative h-80 sm:h-96 w-63 max-w-xs sm:max-w-sm mx-auto perspective-1000 overflow-visible mb-6 sm:mb-8 select-none"
+            // Touch events (mobile)
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            // Mouse events (PC)
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            // Keyboard events
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
             style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           >
             {/* Level Cards */}
@@ -159,12 +213,12 @@ const handleUpgrade = () => {
                     'z-10 scale-80 opacity-70'
                   }`}
                 >
-                  <div className={`h-full rounded-2xl p-6 text-center ${getLevelColor(level.level)} ${getTextColor(level.level)}`}>
-                    <div className={`w-20 h-20 mx-auto mb-5 rounded-full ${getLevelColor(level.level)} flex items-center justify-center text-2xl font-bold`}>
+                  <div className={`h-full rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center ${getLevelColor(level.level)} ${getTextColor(level.level)} flex flex-col justify-center`}>
+                    <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-5 rounded-full ${getLevelColor(level.level)} flex items-center justify-center text-xl sm:text-2xl font-bold`}>
                       {level.level}
                     </div>
-                    <h2 className="text-xl font-bold mb-2">{level.name}</h2>
-                    <p className="mb-4">
+                    <h2 className="text-lg sm:text-xl font-bold mb-2">{level.name}</h2>
+                    <p className="mb-3 sm:mb-4 text-sm sm:text-base leading-relaxed">
                       {(level.profitPerOrder * 100).toFixed(1)}% profit per order<br />
                       {level.appsPerSet} apps per set<br />
                       Min. balance: ${level.minBalance.toLocaleString()}
@@ -174,16 +228,16 @@ const handleUpgrade = () => {
                     {level.level > userLevel && (
                       <button
                         onClick={() => handleUpgrade(level.level)}
-                        className="mt-4 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto transition-all"
+                        className="mt-3 sm:mt-4 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto transition-all text-sm sm:text-base"
                       >
-                        <FiArrowUp className="mr-2" />
+                        <FiArrowUp className="mr-1 sm:mr-2 text-sm sm:text-base" />
                         Upgrade to {level.name}
                       </button>
                     )}
                     
                     {/* Current level indicator */}
                     {level.level === userLevel && (
-                      <div className="mt-4 px-4 py-2 bg-white/10 rounded-full text-sm">
+                      <div className="mt-3 sm:mt-4 px-3 sm:px-4 py-2 bg-white/10 rounded-full text-xs sm:text-sm">
                         Your Current Level
                       </div>
                     )}
@@ -194,17 +248,50 @@ const handleUpgrade = () => {
           </div>
         )}
 
-        {/* Level Indicators */}
-        <div className="flex justify-center gap-2 mb-6">
-          {vipLevels.map((level, index) => (
-            <button
-              key={level.level}
-              onClick={() => updateLevel(index)}
-              className={`w-3 h-3 rounded-full transition-all ${
-                index === currentLevel ? 'bg-teal-400 scale-125' : 'bg-teal-400/30'
-              }`}
-            />
-          ))}
+        {/* Navigation Controls */}
+        <div className="flex justify-center items-center gap-2 sm:gap-4 mb-4 sm:mb-6 px-4">
+          {/* Previous Button */}
+          <button
+            onClick={() => currentLevel > 0 && updateLevel(currentLevel - 1)}
+            disabled={currentLevel === 0}
+            className={`p-2 rounded-full transition-all ${
+              currentLevel === 0 
+                ? 'bg-gray-600/30 text-gray-500 cursor-not-allowed' 
+                : 'bg-teal-400/20 text-teal-400 hover:bg-teal-400/30'
+            }`}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Level Indicators */}
+          <div className="flex gap-1 sm:gap-2">
+            {vipLevels.map((level, index) => (
+              <button
+                key={level.level}
+                onClick={() => updateLevel(index)}
+                className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full transition-all ${
+                  index === currentLevel ? 'bg-teal-400 scale-125' : 'bg-teal-400/30 hover:bg-teal-400/50'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Next Button */}
+          <button
+            onClick={() => currentLevel < vipLevels.length - 1 && updateLevel(currentLevel + 1)}
+            disabled={currentLevel === vipLevels.length - 1}
+            className={`p-2 rounded-full transition-all ${
+              currentLevel === vipLevels.length - 1 
+                ? 'bg-gray-600/30 text-gray-500 cursor-not-allowed' 
+                : 'bg-teal-400/20 text-teal-400 hover:bg-teal-400/30'
+            }`}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
 
         {/* Current Level Progress */}
@@ -223,7 +310,8 @@ const handleUpgrade = () => {
           </div>
         )}
       </div>
-        <SupportModal
+      
+      <SupportModal
         isOpen={showSupportModal}
         onClose={() => setShowSupportModal(false)}
       />
