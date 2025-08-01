@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FiShield, FiZap, FiGithub } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,6 +43,15 @@ const AuthPage = () => {
   });
 
   const navigate = useNavigate();
+
+    useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const refCode = queryParams.get('ref');
+    if (refCode) {
+      setSignupForm(prev => ({ ...prev, referredBy: refCode }));
+    }
+  }, []);
+
 
   // Toast functions
   const addToast = (message, type = 'info') => {
@@ -381,6 +390,7 @@ const AuthPage = () => {
                     value={signupForm.referredBy}
                     onChange={handleSignupChange}
                     placeholder="Enter referral code (Required)"
+                    readOnly={!!new URLSearchParams(window.location.search).get('ref')}
                     className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-gray-600 text-sm focus:border-teal-400 focus:bg-black/40 outline-none transition"
                   />
                 </div>

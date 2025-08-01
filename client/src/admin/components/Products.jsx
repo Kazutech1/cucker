@@ -206,6 +206,8 @@ const Products = () => {
     );
   };
 
+  
+
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc' ? 

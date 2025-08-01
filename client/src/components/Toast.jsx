@@ -329,27 +329,45 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
           to { transform: scale(1.05); }
         }
 
-        .prize-amount {
-          background: linear-gradient(135deg, #fefcbf 0%, #facc15 50%, #f59e0b 100%,), #000;
-          -webkit-background-clip: text;
-          background-clip: text;
-          -webkit-text-fill-color: transparent;
-          font-size: 42px;
-          font-weight: 800;
-          margin: 20px 0;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          filter: drop-shadow(0 2px 8px rgba(20, 0, 21, 0.4));
-          animation: prizeGlow 2s ease-in-out infinite alternate;
-          letter-spacing: -1px;
-          position: relative;
-          z-index: 2;
-        }
+      .prize-amount {
+        /* Gold text color with gradient */
+        background: linear-gradient(135deg, #fff8b0 0%, #ffd700 50%, #ffaa00 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 42px;
+        font-weight: 800;
+        margin: 20px 0;
+        position: relative;
+        z-index: 2;
+        letter-spacing: -1px;
+        
+        /* Glow effect with gold tint */
+        text-shadow: 
+          0 1px 2px rgba(0, 0, 0, 0.5), /* Subtle dark outline for contrast */
+          0 0 10px rgba(255, 215, 0, 0.6),
+          0 0 20px rgba(255, 195, 0, 0.4),
+          0 0 30px rgba(255, 175, 0, 0.2);
+        
+        /* Refined glow animation */
+        animation: goldGlow 2.5s ease-in-out infinite alternate;
+      }
 
-        @keyframes prizeGlow {
-          from { filter: drop-shadow(0 2px 8px rgba(250, 204, 21, 0.4)); }
-          to { filter: drop-shadow(0 4px 12px rgba(250, 204, 21, 0.7)); }
+      @keyframes goldGlow {
+        0% {
+          text-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.5),
+            0 0 8px rgba(255, 215, 0, 0.5),
+            0 0 15px rgba(255, 195, 0, 0.3);
         }
-
+        100% {
+          text-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.5),
+            0 0 15px rgba(255, 215, 0, 0.8),
+            0 0 25px rgba(255, 195, 0, 0.5),
+            0 0 35px rgba(255, 175, 0, 0.3);
+        }
+      }
         .congratulations {
           color: #1f1a44;
           font-size: 1.3rem;

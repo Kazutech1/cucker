@@ -18,7 +18,6 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [profitBalance, setProfitBalance] = useState(0);
   const [currentTask, setCurrentTask] = useState(null);
   const [showDepositPopup, setShowDepositPopup] = useState(false);
   const [showNormalPopup, setShowNormalPopup] = useState(false);
@@ -87,7 +86,6 @@ const Dashboard = () => {
       setLoading(true);
       await Promise.all([
         fetchUserProfile(),
-        fetchProfitBalance(),
         fetchTasks()
       ]);
     } catch (error) {
@@ -130,32 +128,14 @@ const Dashboard = () => {
     }
   };
 
-  const fetchProfitBalance = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/withdrawal/info`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch balance');
-      }
-      
-      const data = await response.json();
-      setProfitBalance(data.profitBalance);
-      
-    } catch (error) {
-      console.error('Balance fetch error:', error);
-      setMessage({ text: 'Failed to load balance info', type: 'error' });
-    }
-  };
+ 
 
   const fetchTasks = async () => {
     try {
       const fetchedTasks = await getUserTasks();
-      const activeTasks = fetchedTasks.filter(task => task.status === 'assigned');
+      const sortedTasks = fetchedTasks.sort((a, b) => a.taskNumber - b.taskNumber);
+    
+    const activeTasks = sortedTasks.filter(task => task.status === 'assigned');
       
       setTasks(activeTasks);
       setTaskStats({
@@ -253,6 +233,11 @@ const Dashboard = () => {
     }
   }, [userData]);
 
+  console.log(tasks);
+  
+
+
+  
   // No Tasks Available Modal
   const NoTasksModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
@@ -409,7 +394,7 @@ const Dashboard = () => {
 
               <div className="flex justify-between text-teal-400 text-2xl font-semibold">
                 <p className="text-green-400 text-2xl">
-                  {formatCurrency(profitBalance)}
+                  {formatCurrency(userData?.profitBalance)}
                 </p>
                 {userData ? `${getVipRoi(userData.vipLevel?.level || 0)}%` : '0%'}
               </div>

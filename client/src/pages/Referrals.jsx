@@ -15,7 +15,6 @@ import {
   FiShare2,
   FiInfo
 } from 'react-icons/fi';
-import Toast from '../components/Toast';
 import useUserReferral from '../../hooks/useUsersReferrals';
 
 const ReferralPage = () => {
@@ -401,13 +400,13 @@ const ReferralPage = () => {
         </div>
 
         {/* Toast Notification */}
-        {toast.show && (
+        {/* {toast.show && (
           <Toast 
             message={toast.message} 
             type={toast.type} 
             onClose={() => setToast({...toast, show: false})} 
           />
-        )}
+        )} */}
       </div>
     </div>
   );

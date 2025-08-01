@@ -100,7 +100,7 @@ const useUserReferral = (userId) => {
       totalReferrals: referralInfo?.totalReferrals || 0,
       activeReferrals: referralInfo?.activeReferrals || 0,
       totalEarned: referralInfo?.totalEarned || 0,
-      referralLink: `${window.location.origin}/signup?ref=${referralInfo?.referralCode || ''}`
+      referralLink: `${window.location.origin}?ref=${referralInfo?.referralCode || ''}`
     },
     
     // Referred users list

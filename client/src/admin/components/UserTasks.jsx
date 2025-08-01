@@ -24,7 +24,10 @@ import {
   Trash2,
   Plus,
   RefreshCw,
-  Search
+  Search,
+  Clock,
+  Check,
+  X
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import useTaskManagement from '../../../hooks/useAdminTasks';
@@ -614,6 +617,7 @@ const UserTasks = ({ userId }) => {
         </Modal>
 
         {/* Edit Task Modal */}
+      {/* Edit Task Modal */}
         <Modal
           title={`Edit Task #${selectedTask?.taskNumber}`}
           visible={editModalVisible}
@@ -626,16 +630,41 @@ const UserTasks = ({ userId }) => {
           destroyOnClose
         >
           <Form form={editForm} layout="vertical">
+            {/* Status Selection Buttons */}
             <Form.Item
               name="status"
               label="Status"
+              style={{ marginBottom: 24 }}
             >
-              <Select disabled={actionLoading}>
-                <Option value="pending">Assigned</Option>
-                <Option value="completed">Completed</Option>
-                <Option value="failed">Rejected</Option>
-              </Select>
+              <Button.Group style={{ width: '100%' }}>
+                <Button
+                  style={{ width: '33.33%' }}
+                  onClick={() => editForm.setFieldsValue({ status: 'pending' })}
+                  type={editForm.getFieldValue('status') === 'pending' ? 'primary' : 'default'}
+                  icon={<Clock size={16} />}
+                >
+                  Pending
+                </Button>
+                <Button
+                  style={{ width: '33.33%' }}
+                  onClick={() => editForm.setFieldValue({ status: 'completed' })}
+                  type={editForm.getFieldValue('status') === 'completed' ? 'primary' : 'default'}
+                  icon={<Check size={16} />}
+                >
+                  Completed
+                </Button>
+                <Button
+                  style={{ width: '33.33%' }}
+                  onClick={() => editForm.setFieldValue({ status: 'failed' })}
+                  type={editForm.getFieldValue('status') === 'failed' ? 'primary' : 'default'}
+                  icon={<X size={16} />}
+                  danger
+                >
+                  Rejected
+                </Button>
+              </Button.Group>
             </Form.Item>
+
             <Form.Item
               name="profitAmount"
               label="Profit Amount"

@@ -871,9 +871,9 @@ const UserManagement = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">New VIP Level (0-5)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">New VIP Level (0-4)</label>
                     <div className="flex items-center space-x-2">
-                      {[0, 1, 2, 3, 4, 5].map(level => (
+                      {[0, 1, 2, 3, 4].map(level => (
                         <button
                           key={level}
                           onClick={() => setVipLevel(level)}
