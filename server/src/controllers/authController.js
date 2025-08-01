@@ -278,6 +278,7 @@ export const getProfile = async (req, res) => {
         email: userWithProfile.email,
         phoneNumber: userWithProfile.phoneNumber,
         balance: userWithProfile.balance,
+        profitBalance: userWithProfile.profitBalance,
         referralCode: userWithProfile.referralCode,
         referredBy: userWithProfile.referredBy,
         vipLevel: userWithProfile.profile.vipLevelData,

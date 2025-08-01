@@ -158,6 +158,7 @@ export const getAllProducts = async (req, res) => {
       id: product.id,
       name: product.name,
       image: product.image,
+      reviewText: product.reviewText,
       defaultProfit: product.defaultProfit,
       defaultDeposit: product.defaultDeposit,
       isActive: product.isActive,
