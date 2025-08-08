@@ -166,6 +166,10 @@ const VIPLevelsPage = () => {
     return level === 2 ? 'text-gray-900' : 'text-white';
   };
 
+
+  
+  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pb-16">
       {isLoading && <LoadingSpinner />}
@@ -219,7 +223,7 @@ const VIPLevelsPage = () => {
                     </div>
                     <h2 className="text-lg sm:text-xl font-bold mb-2">{level.name}</h2>
                     <p className="mb-3 sm:mb-4 text-sm sm:text-base leading-relaxed">
-                      {(level.profitPerOrder * 100).toFixed(1)}% profit per order<br />
+                      {(level.profitPerOrder).toFixed(1)}% profit per order<br />
                       {level.appsPerSet} apps per set<br />
                       Min. balance: ${level.minBalance.toLocaleString()}
                     </p>
