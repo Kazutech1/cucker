@@ -1,93 +1,121 @@
 import { PrismaClient } from '@prisma/client';
 import { validateTaskAssignment } from '../middlewares/taskValidator.js';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { v4 as uuidv4 } from 'uuid';
 const prisma = new PrismaClient();
 
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
+
+
+const storage = multer.memoryStorage();
+
+export const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
+
+
+
+// CREATE PRODUCT
 export const createProduct = async (req, res) => {
   try {
-    const { 
-      name, 
-      image, 
-      reviewText, 
-      defaultProfit, 
-      defaultDeposit 
+    const {
+      name,
+      reviewText,
+      defaultProfit,
+      defaultDeposit
     } = req.body;
 
-    // Validate required fields
-    if (!name || !image || defaultProfit === undefined) {
+    if (!name || defaultProfit === undefined) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    let imageUrl = null;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload_stream(
+        { folder: 'products' },
+        (error, result) => {
+          if (error) throw error;
+          imageUrl = result.secure_url;
+        }
+      );
+
+      // manually stream the buffer into cloudinary
+      result.end(req.file.buffer);
     }
 
     const product = await prisma.product.create({
       data: {
         name,
-        image,
+        image: imageUrl,
         reviewText,
-        defaultProfit,
-        defaultDeposit,
+        defaultProfit: parseFloat(defaultProfit),
+        defaultDeposit: defaultDeposit ? parseFloat(defaultDeposit) : 0,
         isActive: true
       }
     });
 
     res.json({
       message: "Product created successfully",
-      product: {
-        id: product.id,
-        name: product.name,
-        defaultProfit: product.defaultProfit,
-        isActive: product.isActive
-      }
+      product
     });
+
   } catch (error) {
     console.error("Create product error:", error);
     res.status(500).json({ message: "Failed to create product" });
   }
 };
 
-
-
-
+// UPDATE PRODUCT
 export const updateProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const {
       name,
-      image,
       reviewText,
       defaultProfit,
       defaultDeposit,
       isActive
     } = req.body;
 
-    // Validate at least one field to update
-    if (!name && !image && !reviewText && 
-        defaultProfit === undefined && 
-        defaultDeposit === undefined && 
-        isActive === undefined) {
-      return res.status(400).json({ message: "No fields to update" });
+    let imageUrl;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload_stream(
+        { folder: 'products' },
+        (error, result) => {
+          if (error) throw error;
+          imageUrl = result.secure_url;
+        }
+      );
+
+      result.end(req.file.buffer);
     }
 
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
       data: {
         ...(name && { name }),
-        ...(image && { image }),
         ...(reviewText && { reviewText }),
-        ...(defaultProfit !== undefined && { defaultProfit }),
-        ...(defaultDeposit !== undefined && { defaultDeposit }),
+        ...(defaultProfit !== undefined && { defaultProfit: parseFloat(defaultProfit) }),
+        ...(defaultDeposit !== undefined && { defaultDeposit: parseFloat(defaultDeposit) }),
         ...(isActive !== undefined && { isActive }),
+        ...(imageUrl && { image: imageUrl }),
         updatedAt: new Date()
       }
     });
 
     res.json({
       message: "Product updated successfully",
-      product: {
-        id: updatedProduct.id,
-        name: updatedProduct.name,
-        isActive: updatedProduct.isActive
-      }
+      product: updatedProduct
     });
   } catch (error) {
     console.error("Update product error:", error);
@@ -97,7 +125,6 @@ export const updateProduct = async (req, res) => {
     res.status(500).json({ message: "Failed to update product" });
   }
 };
-
 
 
 

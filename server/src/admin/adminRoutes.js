@@ -45,7 +45,7 @@ import {
 import { authenticateUser } from '../middlewares/auth.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
 // import { assignTask, assignTasksToUser, assignTaskToUser, createCustomUserTask, createTask,  deactivateUserTasks, deleteTask, getAllTasks, getAllUserTasks, getTaskById, updateTask, updateTaskLimit, updateUsersTask, updateUserTask, verifyForcedTask } from './taskController.js';
-import { assignTasksToUser, createProduct, deactivateUserTasks, deleteProduct, deleteTask, editTask, getAllProducts, getAllUsersTasks, getProduct, toggleProductStatus, updateProduct, updateTaskDetails } from './adminController.js';
+import { assignTasksToUser, createProduct, deactivateUserTasks, deleteProduct, deleteTask, editTask, getAllProducts, getAllUsersTasks, getProduct, toggleProductStatus, updateProduct, updateTaskDetails, upload } from './adminController.js';
 // import { createTask, deleteTask, getAllTasks, getAllUsersTaskStats, getUserTaskHistorys, resetAllUserTasks, resetUserTasks, setUserTaskAmount, updateTask } from './taskController.js';
 // import { createAppReview, createTask, deleteAppReview, deleteTask, getAllTasks, getAppReviews, getTaskAnalytics, getTaskSettings, getUsersWithPendingTasks, getUserTaskStats, resetAllUserTasks, resetUserTasks, setUserTaskLimit, updateAppReview, updateTask, updateTaskSettings, updateUserTaskLimit } from './taskController.js';
 
@@ -98,8 +98,8 @@ router.put('/settings', updateAppSettings);
 
 
 
-router.post('/products', createProduct);
-
+router.post('/products', upload.single('image'), createProduct);
+router.put('/products/:productId', upload.single('image'), updateProduct);
 // Get all products
 router.get('/products', getAllProducts);
 
@@ -107,7 +107,7 @@ router.get('/products', getAllProducts);
 router.get('/products/:productId', getProduct);
 
 // Update a product
-router.put('/products/:productId', updateProduct);
+// router.put('/products/:productId', updateProduct);
 
 // Toggle product status (active/inactive)
 router.patch('/products/:productId/toggle-status', toggleProductStatus);
