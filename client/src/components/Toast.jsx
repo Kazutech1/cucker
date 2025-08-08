@@ -70,13 +70,13 @@ const DepositTaskPopup = ({ task, onClose, onComplete }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="popup-container relative">
-        <button 
+        {/* <button 
           className="close-btn" 
           onClick={onClose}
           aria-label="Close popup"
         >
           <FiX size={20} />
-        </button>
+        </button> */}
         
         <div className="popup">
           <div className="sparkles"></div>

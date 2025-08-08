@@ -11,9 +11,10 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
-  Loader2
+  Loader2,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
-// import Toast from '../../components/Toast';
 import useProductAdmin from '../../../hooks/useAdminProducts';
 
 const Products = () => {
@@ -42,13 +43,17 @@ const Products = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [formData, setFormData] = useState({
     name: '',
-    image: '',
+    image: null,
+    imagePreview: '',
     reviewText: '',
     defaultProfit: 0,
     defaultDeposit: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const modalRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -104,7 +109,8 @@ const Products = () => {
     setSelectedProduct(product);
     setFormData({
       name: product.name,
-      image: product.image,
+      image: null,
+      imagePreview: product.image,
       reviewText: product.reviewText,
       defaultProfit: product.defaultProfit,
       defaultDeposit: product.defaultDeposit
@@ -113,20 +119,60 @@ const Products = () => {
     setShowModal(true);
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.match('image.*')) {
+        showToast('Please select an image file (JPEG, PNG, etc.)', 'error');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size should be less than 5MB', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          image: file,
+          imagePreview: reader.result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreateProduct = async () => {
-    if (!formData.name || !formData.image) {
-      showToast('Name and Image are required fields', 'error');
+    if (!formData.name) {
+      showToast('Product name is required', 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await createProduct(formData);
+      const productData = new FormData();
+      productData.append('name', formData.name);
+      productData.append('reviewText', formData.reviewText || '');
+      productData.append('defaultProfit', formData.defaultProfit.toString());
+      productData.append('defaultDeposit', formData.defaultDeposit.toString());
+      
+      if (formData.image) {
+        productData.append('image', formData.image);
+      } else if (formData.imagePreview) {
+        productData.append('imageUrl', formData.imagePreview);
+      }
+
+      await createProduct(productData);
       showToast('Product created successfully', 'success');
       setShowModal(false);
+      resetForm();
       fetchProducts();
     } catch (err) {
-      showToast('Failed to create product', 'error');
+      showToast(err.message || 'Failed to create product', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -137,12 +183,25 @@ const Products = () => {
     
     setIsSubmitting(true);
     try {
-      await updateProduct(selectedProduct.id, formData);
+      const productData = new FormData();
+      productData.append('name', formData.name);
+      productData.append('reviewText', formData.reviewText || '');
+      productData.append('defaultProfit', formData.defaultProfit.toString());
+      productData.append('defaultDeposit', formData.defaultDeposit.toString());
+      
+      if (formData.image) {
+        productData.append('image', formData.image);
+      } else if (formData.imagePreview !== selectedProduct.image) {
+        productData.append('imageUrl', formData.imagePreview);
+      }
+
+      await updateProduct(selectedProduct.id, productData);
       showToast('Product updated successfully', 'success');
       setShowModal(false);
+      resetForm();
       fetchProducts();
     } catch (err) {
-      showToast('Failed to update product', 'error');
+      showToast(err.message || 'Failed to update product', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -158,17 +217,30 @@ const Products = () => {
     }
   };
 
- const handleDeleteProduct = async (productId) => {
+  const handleDeleteProduct = async (productId) => {
+    setDeleteLoading(true);
     try {
       await deleteProduct(productId);
       showToast('Product deleted successfully', 'success');
       fetchProducts();
     } catch (err) {
       showToast('Failed to delete product', 'error');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
     }
   };
 
-
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      image: null,
+      imagePreview: '',
+      reviewText: '',
+      defaultProfit: 0,
+      defaultDeposit: 0
+    });
+  };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -206,8 +278,6 @@ const Products = () => {
     );
   };
 
-  
-
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc' ? 
@@ -218,6 +288,26 @@ const Products = () => {
   return (
     <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
       <div className="max-w-7xl mx-auto">
+        {/* Toast Notification */}
+        {toast.show && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
+            toast.type === 'error' ? 'bg-red-100 text-red-800' :
+            toast.type === 'success' ? 'bg-green-100 text-green-800' :
+            'bg-blue-100 text-blue-800'
+          }`}>
+            <div className="flex items-center">
+              {toast.type === 'error' ? (
+                <XCircle className="mr-2" size={20} />
+              ) : toast.type === 'success' ? (
+                <CheckCircle className="mr-2" size={20} />
+              ) : (
+                <Package className="mr-2" size={20} />
+              )}
+              <span>{toast.message}</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <h2 className="text-2xl font-bold flex items-center mb-4 md:mb-0">
             <Package className="mr-2" size={24} />
@@ -238,13 +328,7 @@ const Products = () => {
             
             <button
               onClick={() => {
-                setFormData({
-                  name: '',
-                  image: '',
-                  reviewText: '',
-                  defaultProfit: 0,
-                  defaultDeposit: 0
-                });
+                resetForm();
                 setIsEditMode(false);
                 setSelectedProduct(null);
                 setShowModal(true);
@@ -260,12 +344,29 @@ const Products = () => {
         {/* Products Table */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           {loading && !products.length ? (
-            <div className="p-8 flex justify-center">
-              <Loader2 className="animate-spin h-8 w-8 text-black" />
+            <div className="p-8 flex flex-col items-center justify-center">
+              <Loader2 className="animate-spin h-8 w-8 text-black mb-2" />
+              <p>Loading products...</p>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              {searchTerm ? 'No matching products found' : 'No products available'}
+              {searchTerm ? (
+                <>
+                  <Package className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2">No matching products found</p>
+                  <button 
+                    onClick={() => setSearchTerm('')} 
+                    className="mt-2 text-sm text-black hover:underline"
+                  >
+                    Clear search
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Package className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2">No products available</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -329,7 +430,9 @@ const Products = () => {
                               }}
                             />
                           ) : (
-                            <Package className="flex-shrink-0 h-10 w-10 text-gray-400" />
+                            <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center">
+                              <ImageIcon className="h-5 w-5 text-gray-400" />
+                            </div>
                           )}
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
@@ -381,12 +484,15 @@ const Products = () => {
                           {product.isActive ? <XCircle size={16} /> : <CheckCircle size={16} />}
                         </button>
                         <button
-          onClick={() => handleDeleteProduct(product.id)}
-          className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
-          title="Delete"
-        >
-          <Trash2 size={16} />
-        </button>
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowDeleteDialog(true);
+                          }}
+                          className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -433,32 +539,73 @@ const Products = () => {
                           required
                         />
                       </div>
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Image URL <span className="text-red-500">*</span>
+                          Product Image {!formData.imagePreview && <span className="text-red-500">*</span>}
                         </label>
-                        <input
-                          type="text"
-                          name="image"
-                          value={formData.image}
-                          onChange={handleFormChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                          required
-                        />
-                        {formData.image && (
-                          <div className="mt-2">
-                            <img 
-                              src={formData.image} 
-                              alt="Preview" 
-                              className="h-20 rounded-md object-cover border"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://via.placeholder.com/80';
-                              }}
+                        <div className="mt-1">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current.click()}
+                              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {formData.imagePreview ? 'Change Image' : 'Upload Image'}
+                            </button>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="hidden"
                             />
+                            {isUploading && (
+                              <div className="ml-4">
+                                <Loader2 className="animate-spin h-5 w-5 text-gray-500" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            JPEG, PNG (Max 5MB)
+                          </p>
+                        </div>
+                        
+                        {formData.imagePreview && (
+                          <div className="mt-4">
+                            <p className="text-sm text-gray-500 mb-2">Image Preview:</p>
+                            <div className="relative inline-block">
+                              <img 
+                                src={formData.imagePreview} 
+                                alt="Preview" 
+                                className="h-32 rounded-md object-cover border"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://via.placeholder.com/128';
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    image: null,
+                                    imagePreview: isEditMode ? selectedProduct.image : ''
+                                  }));
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                  }
+                                }}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 -mt-2 -mr-2 hover:bg-red-600"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <textarea
@@ -521,7 +668,9 @@ const Products = () => {
                             }}
                           />
                         ) : (
-                          <Package className="h-16 w-16 text-gray-400" />
+                          <div className="h-16 w-16 bg-gray-100 rounded-md flex items-center justify-center">
+                            <ImageIcon className="h-8 w-8 text-gray-400" />
+                          </div>
                         )}
                         <div>
                           <h4 className="text-lg font-bold">{selectedProduct.name}</h4>
@@ -560,7 +709,7 @@ const Products = () => {
                   <button
                     onClick={() => setShowModal(false)}
                     className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isUploading}
                   >
                     Cancel
                   </button>
@@ -568,23 +717,23 @@ const Products = () => {
                     <button
                       onClick={handleUpdateProduct}
                       className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-24"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isUploading}
                     >
-                      {isSubmitting ? (
+                      {(isSubmitting || isUploading) ? (
                         <Loader2 className="animate-spin mr-2" size={16} />
                       ) : null}
-                      Update Product
+                      {isSubmitting || isUploading ? 'Saving...' : 'Update'}
                     </button>
                   ) : selectedProduct ? null : (
                     <button
                       onClick={handleCreateProduct}
                       className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 transition-colors flex items-center justify-center min-w-24"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isUploading}
                     >
-                      {isSubmitting ? (
+                      {(isSubmitting || isUploading) ? (
                         <Loader2 className="animate-spin mr-2" size={16} />
                       ) : null}
-                      Create Product
+                      {isSubmitting || isUploading ? 'Creating...' : 'Create'}
                     </button>
                   )}
                 </div>
@@ -594,24 +743,44 @@ const Products = () => {
         )}
 
         {/* Delete Confirmation Dialog */}
-        {/* <ConfirmationDialog
-          isOpen={showDeleteDialog}
-          onClose={() => setShowDeleteDialog(false)}
-          onConfirm={handleDeleteConfirm}
-          title="Delete Product"
-          message={`Are you sure you want to delete "${selectedProduct?.name}"? This action cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          danger
-        /> */}
-
-        {/* Toast Notification */}
-        {/* <Toast
-          show={toast.show}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        /> */}
+        {showDeleteDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-lg font-bold">Delete Product</h3>
+                <button
+                  onClick={() => setShowDeleteDialog(false)}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  disabled={deleteLoading}
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mb-6">
+                Are you sure you want to delete <span className="font-semibold">"{selectedProduct?.name}"</span>? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteDialog(false)}
+                  className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteProduct(selectedProduct.id)}
+                  className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors flex items-center justify-center min-w-24"
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? (
+                    <Loader2 className="animate-spin mr-2" size={16} />
+                  ) : null}
+                  {deleteLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
