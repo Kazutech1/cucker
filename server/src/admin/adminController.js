@@ -24,39 +24,44 @@ export const upload = multer({
 
 
 // CREATE PRODUCT
+// Improved createProduct with proper Cloudinary await
 export const createProduct = async (req, res) => {
   try {
-    const {
+    // For multipart/form-data, text fields come in req.body
+    // but only if you've configured the middleware correctly
+    const { name, reviewText, defaultProfit, defaultDeposit } = req.body;
+
+    console.log('Received fields:', {
       name,
       reviewText,
       defaultProfit,
-      defaultDeposit
-    } = req.body;
+      defaultDeposit,
+      file: req.file ? 'exists' : 'none'
+    });
 
-    if (!name || defaultProfit === undefined) {
-      return res.status(400).json({ message: "Missing required fields" });
+    if (!name || !defaultProfit) {
+      return res.status(400).json({ message: "Name and defaultProfit are required" });
     }
 
     let imageUrl = null;
-
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream(
-        { folder: 'products' },
-        (error, result) => {
-          if (error) throw error;
-          imageUrl = result.secure_url;
-        }
-      );
-
-      // manually stream the buffer into cloudinary
-      result.end(req.file.buffer);
+      imageUrl = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'products' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
     }
 
     const product = await prisma.product.create({
       data: {
         name,
         image: imageUrl,
-        reviewText,
+        reviewText: reviewText || '',
         defaultProfit: parseFloat(defaultProfit),
         defaultDeposit: defaultDeposit ? parseFloat(defaultDeposit) : 0,
         isActive: true
@@ -67,47 +72,81 @@ export const createProduct = async (req, res) => {
       message: "Product created successfully",
       product
     });
-
   } catch (error) {
     console.error("Create product error:", error);
-    res.status(500).json({ message: "Failed to create product" });
+    res.status(500).json({ message: error.message || "Failed to create product" });
   }
 };
-
-// UPDATE PRODUCT
+// Improved updateProduct
 export const updateProduct = async (req, res) => {
   try {
     const { productId } = req.params;
-    const {
+    const { name, reviewText, defaultProfit, defaultDeposit, isActive } = req.body;
+
+    console.log('Received update fields:', {
       name,
       reviewText,
       defaultProfit,
       defaultDeposit,
-      isActive
-    } = req.body;
+      isActive,
+      file: req.file ? 'exists' : 'none'
+    });
 
-    let imageUrl;
+    // Check if product exists first
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    let imageUrl = existingProduct.image;
 
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream(
-        { folder: 'products' },
-        (error, result) => {
-          if (error) throw error;
-          imageUrl = result.secure_url;
+      // Delete old image if exists
+      if (imageUrl) {
+        try {
+          const publicId = imageUrl.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(`products/${publicId}`);
+        } catch (cloudinaryError) {
+          console.error('Error deleting old image:', cloudinaryError);
+          // Continue with new upload even if deletion fails
         }
-      );
+      }
 
-      result.end(req.file.buffer);
+      imageUrl = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'products' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
     }
 
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
       data: {
-        ...(name && { name }),
-        ...(reviewText && { reviewText }),
-        ...(defaultProfit !== undefined && { defaultProfit: parseFloat(defaultProfit) }),
-        ...(defaultDeposit !== undefined && { defaultDeposit: parseFloat(defaultDeposit) }),
-        ...(isActive !== undefined && { isActive }),
+        ...(name !== undefined && { name }),
+        ...(reviewText !== undefined && { reviewText }),
+        ...(defaultProfit !== undefined && { 
+          defaultProfit: typeof defaultProfit === 'string' 
+            ? parseFloat(defaultProfit) 
+            : defaultProfit 
+        }),
+        ...(defaultDeposit !== undefined && { 
+          defaultDeposit: typeof defaultDeposit === 'string' 
+            ? parseFloat(defaultDeposit) 
+            : defaultDeposit 
+        }),
+        ...(isActive !== undefined && { 
+          isActive: typeof isActive === 'string' 
+            ? isActive === 'true' 
+            : isActive 
+        }),
         ...(imageUrl && { image: imageUrl }),
         updatedAt: new Date()
       }
@@ -119,12 +158,15 @@ export const updateProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Update product error:", error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({ message: "Product not found" });
-    }
-    res.status(500).json({ message: "Failed to update product" });
+    res.status(500).json({ 
+      message: error.message || "Failed to update product",
+      ...(error.code && { code: error.code })
+    });
   }
 };
+
+// UPDATE PRODUCT
+
 
 
 
