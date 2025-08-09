@@ -1,41 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  PlusCircle,
-  Edit,
-  Trash2,
-  Eye,
-  CheckCircle,
-  XCircle,
-  Package,
-  DollarSign,
-  Search,
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  Upload,
-  Image as ImageIcon
+  PlusCircle, Edit, Trash2, Eye, CheckCircle, XCircle, 
+  Package, DollarSign, Search, ChevronUp, ChevronDown, 
+  Loader2, Upload, Image as ImageIcon, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import useProductAdmin from '../../../hooks/useAdminProducts';
+import useProducts from '../../../hooks/useAdminProducts';
+import debounce from 'lodash.debounce';
+
+// Debug configuration
+const DEBUG = true;
+const debugLog = (...args) => DEBUG && console.log('[ProductAdmin]', ...args);
+
+// Pagination constants
+const ITEMS_PER_PAGE = 10;
+const PAGINATION_OPTIONS = [5, 10, 25, 50];
 
 const Products = () => {
   const {
     loading,
     error,
     createProduct,
-    getProducts,
     updateProduct,
+    getAllProducts,
     toggleProductStatus,
     deleteProduct
-  } = useProductAdmin();
+  } = useProducts();
 
+  // State management
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [toast, setToast] = useState({
-    show: false,
-    message: '',
-    type: 'info'
-  });
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -44,14 +39,16 @@ const Products = () => {
   const [formData, setFormData] = useState({
     name: '',
     image: null,
-    imagePreview: '',
     reviewText: '',
     defaultProfit: 0,
     defaultDeposit: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
   const modalRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -71,21 +68,36 @@ const Products = () => {
     fetchProducts();
   }, []);
 
-  // Filter products when search term changes
+  // Debounced search
+  const debouncedFilter = useCallback(
+    debounce((term, products) => {
+      const filtered = products.filter(product => 
+        product.name.toLowerCase().includes(term.toLowerCase()) ||
+        product.reviewText?.toLowerCase().includes(term.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300),
+    []
+  );
+
   useEffect(() => {
-    const filtered = products.filter(product => 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.reviewText?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredProducts(filtered);
-  }, [searchTerm, products]);
+    debouncedFilter(searchTerm, products);
+    return () => debouncedFilter.cancel();
+  }, [searchTerm, products, debouncedFilter]);
+
+  // Pagination calculations
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
 
   const fetchProducts = async () => {
     try {
-      const data = await getProducts();
+      const data = await getAllProducts();
       if (Array.isArray(data)) {
         setProducts(data);
-        setFilteredProducts(data);
       } else {
         showToast('Invalid products data received', 'error');
       }
@@ -99,6 +111,7 @@ const Products = () => {
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 5000);
   };
 
+  // Optimized handlers
   const handleViewProduct = (product) => {
     setSelectedProduct(product);
     setIsEditMode(false);
@@ -110,10 +123,9 @@ const Products = () => {
     setFormData({
       name: product.name,
       image: null,
-      imagePreview: product.image,
-      reviewText: product.reviewText,
-      defaultProfit: product.defaultProfit,
-      defaultDeposit: product.defaultDeposit
+      reviewText: product.reviewText || '',
+      defaultProfit: product.defaultProfit || 0,
+      defaultDeposit: product.defaultDeposit || 0
     });
     setIsEditMode(true);
     setShowModal(true);
@@ -121,29 +133,19 @@ const Products = () => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.match('image.*')) {
-        showToast('Please select an image file (JPEG, PNG, etc.)', 'error');
-        return;
-      }
-      
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        showToast('Image size should be less than 5MB', 'error');
-        return;
-      }
+    if (!file) return;
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          image: file,
-          imagePreview: reader.result
-        }));
-      };
-      reader.readAsDataURL(file);
+    if (!file.type.match('image.*')) {
+      showToast('Please select an image file (JPEG, PNG, etc.)', 'error');
+      return;
     }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size should be less than 5MB', 'error');
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, image: file }));
   };
 
   const handleCreateProduct = async () => {
@@ -156,21 +158,19 @@ const Products = () => {
     try {
       const productData = new FormData();
       productData.append('name', formData.name);
-      productData.append('reviewText', formData.reviewText || '');
+      productData.append('reviewText', formData.reviewText);
       productData.append('defaultProfit', formData.defaultProfit.toString());
       productData.append('defaultDeposit', formData.defaultDeposit.toString());
       
       if (formData.image) {
         productData.append('image', formData.image);
-      } else if (formData.imagePreview) {
-        productData.append('imageUrl', formData.imagePreview);
       }
 
       await createProduct(productData);
       showToast('Product created successfully', 'success');
       setShowModal(false);
       resetForm();
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       showToast(err.message || 'Failed to create product', 'error');
     } finally {
@@ -185,21 +185,19 @@ const Products = () => {
     try {
       const productData = new FormData();
       productData.append('name', formData.name);
-      productData.append('reviewText', formData.reviewText || '');
+      productData.append('reviewText', formData.reviewText);
       productData.append('defaultProfit', formData.defaultProfit.toString());
       productData.append('defaultDeposit', formData.defaultDeposit.toString());
       
       if (formData.image) {
         productData.append('image', formData.image);
-      } else if (formData.imagePreview !== selectedProduct.image) {
-        productData.append('imageUrl', formData.imagePreview);
       }
 
       await updateProduct(selectedProduct.id, productData);
       showToast('Product updated successfully', 'success');
       setShowModal(false);
       resetForm();
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       showToast(err.message || 'Failed to update product', 'error');
     } finally {
@@ -211,7 +209,7 @@ const Products = () => {
     try {
       await toggleProductStatus(productId);
       showToast('Product status updated', 'success');
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       showToast('Failed to update product status', 'error');
     }
@@ -222,7 +220,7 @@ const Products = () => {
     try {
       await deleteProduct(productId);
       showToast('Product deleted successfully', 'success');
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       showToast('Failed to delete product', 'error');
     } finally {
@@ -235,7 +233,6 @@ const Products = () => {
     setFormData({
       name: '',
       image: null,
-      imagePreview: '',
       reviewText: '',
       defaultProfit: 0,
       defaultDeposit: 0
@@ -246,7 +243,7 @@ const Products = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'defaultProfit' || name === 'defaultDeposit' 
+      [name]: name.includes('Profit') || name.includes('Deposit') 
         ? parseFloat(value) || 0 
         : value
     }));
@@ -268,22 +265,32 @@ const Products = () => {
     setFilteredProducts(sortedProducts);
   };
 
-  const getStatusBadge = (isActive) => {
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-        isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-      }`}>
-        {isActive ? 'Active' : 'Inactive'}
-      </span>
-    );
+  // Pagination controls
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return null;
-    return sortConfig.direction === 'asc' ? 
-      <ChevronUp className="ml-1 inline" size={14} /> : 
-      <ChevronDown className="ml-1 inline" size={14} />;
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
   };
+
+  // UI components
+  const getStatusBadge = (isActive) => (
+    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+      isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    }`}>
+      {isActive ? 'Active' : 'Inactive'}
+    </span>
+  );
+
+  const SortIcon = ({ columnKey }) => (
+    sortConfig.key === columnKey && (
+      sortConfig.direction === 'asc' 
+        ? <ChevronUp className="ml-1 inline" size={14} /> 
+        : <ChevronDown className="ml-1 inline" size={14} />
+    )
+  );
 
   return (
     <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
@@ -296,20 +303,17 @@ const Products = () => {
             'bg-blue-100 text-blue-800'
           }`}>
             <div className="flex items-center">
-              {toast.type === 'error' ? (
-                <XCircle className="mr-2" size={20} />
-              ) : toast.type === 'success' ? (
-                <CheckCircle className="mr-2" size={20} />
-              ) : (
-                <Package className="mr-2" size={20} />
-              )}
+              {toast.type === 'error' ? <XCircle className="mr-2" size={20} /> :
+               toast.type === 'success' ? <CheckCircle className="mr-2" size={20} /> :
+               <Package className="mr-2" size={20} />}
               <span>{toast.message}</span>
             </div>
           </div>
         )}
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <h2 className="text-2xl font-bold flex items-center mb-4 md:mb-0">
+        {/* Header with Search and Add Button */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <h2 className="text-2xl font-bold flex items-center">
             <Package className="mr-2" size={24} />
             Product Management
           </h2>
@@ -348,7 +352,7 @@ const Products = () => {
               <Loader2 className="animate-spin h-8 w-8 text-black mb-2" />
               <p>Loading products...</p>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : currentItems.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               {searchTerm ? (
                 <>
@@ -369,136 +373,223 @@ const Products = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center">
-                        Product
-                        <SortIcon columnKey="name" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('defaultProfit')}
-                    >
-                      <div className="flex items-center">
-                        Default Profit
-                        <SortIcon columnKey="defaultProfit" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('defaultDeposit')}
-                    >
-                      <div className="flex items-center">
-                        Default Deposit
-                        <SortIcon columnKey="defaultDeposit" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('isActive')}
-                    >
-                      <div className="flex items-center">
-                        Status
-                        <SortIcon columnKey="isActive" />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('name')}
+                      >
                         <div className="flex items-center">
-                          {product.image ? (
-                            <img 
-                              src={product.image} 
-                              alt={product.name}
-                              className="flex-shrink-0 h-10 w-10 rounded-md object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://via.placeholder.com/40';
-                              }}
-                            />
-                          ) : (
-                            <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center">
-                              <ImageIcon className="h-5 w-5 text-gray-400" />
-                            </div>
-                          )}
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500 line-clamp-1 max-w-xs">
-                              {product.reviewText || 'No description'}
+                          Product
+                          <SortIcon columnKey="name" />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('defaultProfit')}
+                      >
+                        <div className="flex items-center">
+                          Default Profit
+                          <SortIcon columnKey="defaultProfit" />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('defaultDeposit')}
+                      >
+                        <div className="flex items-center">
+                          Default Deposit
+                          <SortIcon columnKey="defaultDeposit" />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('isActive')}
+                      >
+                        <div className="flex items-center">
+                          Status
+                          <SortIcon columnKey="isActive" />
+                        </div>
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentItems.map((product) => (
+                      <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            {product.image ? (
+                              <img 
+                                src={product.image} 
+                                alt={product.name}
+                                className="flex-shrink-0 h-10 w-10 rounded-md object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://via.placeholder.com/40';
+                                }}
+                              />
+                            ) : (
+                              <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center">
+                                <ImageIcon className="h-5 w-5 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {product.name}
+                              </div>
+                              <div className="text-sm text-gray-500 line-clamp-1 max-w-xs">
+                                {product.reviewText || 'No description'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <DollarSign className="mr-1" size={14} />
-                          {product.defaultProfit?.toFixed(2) || '0.00'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <DollarSign className="mr-1" size={14} />
-                          {product.defaultDeposit?.toFixed(2) || '0.00'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(product.isActive)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => handleViewProduct(product)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors p-1 rounded hover:bg-blue-50"
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleEditProduct(product)}
-                          className="text-indigo-600 hover:text-indigo-900 transition-colors p-1 rounded hover:bg-indigo-50"
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(product.id)}
-                          className={product.isActive 
-                            ? "text-yellow-600 hover:text-yellow-900 transition-colors p-1 rounded hover:bg-yellow-50" 
-                            : "text-green-600 hover:text-green-900 transition-colors p-1 rounded hover:bg-green-50"}
-                          title={product.isActive ? "Deactivate" : "Activate"}
-                        >
-                          {product.isActive ? <XCircle size={16} /> : <CheckCircle size={16} />}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setShowDeleteDialog(true);
-                          }}
-                          className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <DollarSign className="mr-1" size={14} />
+                            {product.defaultProfit?.toFixed(2) || '0.00'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <DollarSign className="mr-1" size={14} />
+                            {product.defaultDeposit?.toFixed(2) || '0.00'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(product.isActive)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          <button
+                            onClick={() => handleViewProduct(product)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors p-1 rounded hover:bg-blue-50"
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleEditProduct(product)}
+                            className="text-indigo-600 hover:text-indigo-900 transition-colors p-1 rounded hover:bg-indigo-50"
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(product.id)}
+                            className={product.isActive 
+                              ? "text-yellow-600 hover:text-yellow-900 transition-colors p-1 rounded hover:bg-yellow-50" 
+                              : "text-green-600 hover:text-green-900 transition-colors p-1 rounded hover:bg-green-50"}
+                            title={product.isActive ? "Deactivate" : "Activate"}
+                          >
+                            {product.isActive ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setShowDeleteDialog(true);
+                            }}
+                            className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(indexOfLastItem, totalItems)}</span> of{' '}
+                    <span className="font-medium">{totalItems}</span> results
+                  </span>
+                  
+                  <select
+                    value={itemsPerPage}
+                    onChange={handleItemsPerPageChange}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    {PAGINATION_OPTIONS.map(option => (
+                      <option key={option} value={option}>
+                        {option} per page
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`px-3 py-1 border text-sm font-medium rounded-md ${
+                          currentPage === pageNum
+                            ? 'bg-black text-white border-black'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <span className="px-3 py-1 text-sm">...</span>
+                  )}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <button
+                      onClick={() => goToPage(totalPages)}
+                      className={`px-3 py-1 border text-sm font-medium rounded-md ${
+                        currentPage === totalPages
+                          ? 'bg-black text-white border-black'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -542,7 +633,7 @@ const Products = () => {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Product Image {!formData.imagePreview && <span className="text-red-500">*</span>}
+                          Product Image
                         </label>
                         <div className="mt-1">
                           <div className="flex items-center gap-3">
@@ -552,7 +643,7 @@ const Products = () => {
                               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                             >
                               <Upload className="mr-2 h-4 w-4" />
-                              {formData.imagePreview ? 'Change Image' : 'Upload Image'}
+                              {formData.image ? 'Change Image' : 'Upload Image'}
                             </button>
                             <input
                               ref={fileInputRef}
@@ -561,49 +652,16 @@ const Products = () => {
                               onChange={handleImageChange}
                               className="hidden"
                             />
-                            {isUploading && (
-                              <div className="ml-4">
-                                <Loader2 className="animate-spin h-5 w-5 text-gray-500" />
-                              </div>
+                            {formData.image && (
+                              <span className="text-sm text-gray-500">
+                                {formData.image.name || 'Image selected'}
+                              </span>
                             )}
                           </div>
                           <p className="mt-1 text-xs text-gray-500">
                             JPEG, PNG (Max 5MB)
                           </p>
                         </div>
-                        
-                        {formData.imagePreview && (
-                          <div className="mt-4">
-                            <p className="text-sm text-gray-500 mb-2">Image Preview:</p>
-                            <div className="relative inline-block">
-                              <img 
-                                src={formData.imagePreview} 
-                                alt="Preview" 
-                                className="h-32 rounded-md object-cover border"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = 'https://via.placeholder.com/128';
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    image: null,
-                                    imagePreview: isEditMode ? selectedProduct.image : ''
-                                  }));
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.value = '';
-                                  }
-                                }}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 -mt-2 -mr-2 hover:bg-red-600"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       <div>
@@ -709,7 +767,7 @@ const Products = () => {
                   <button
                     onClick={() => setShowModal(false)}
                     className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    disabled={isSubmitting || isUploading}
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </button>
@@ -717,23 +775,23 @@ const Products = () => {
                     <button
                       onClick={handleUpdateProduct}
                       className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors flex items-center justify-center min-w-24"
-                      disabled={isSubmitting || isUploading}
+                      disabled={isSubmitting}
                     >
-                      {(isSubmitting || isUploading) ? (
+                      {isSubmitting ? (
                         <Loader2 className="animate-spin mr-2" size={16} />
                       ) : null}
-                      {isSubmitting || isUploading ? 'Saving...' : 'Update'}
+                      {isSubmitting ? 'Saving...' : 'Update'}
                     </button>
                   ) : selectedProduct ? null : (
                     <button
                       onClick={handleCreateProduct}
                       className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-800 transition-colors flex items-center justify-center min-w-24"
-                      disabled={isSubmitting || isUploading}
+                      disabled={isSubmitting}
                     >
-                      {(isSubmitting || isUploading) ? (
+                      {isSubmitting ? (
                         <Loader2 className="animate-spin mr-2" size={16} />
                       ) : null}
-                      {isSubmitting || isUploading ? 'Creating...' : 'Create'}
+                      {isSubmitting ? 'Creating...' : 'Create'}
                     </button>
                   )}
                 </div>
